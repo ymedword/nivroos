@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.nivroos</groupId>
+        <artifactId>nivroos</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>nivroos-provider</artifactId>
+    <name>NivroOS Provider</name>
+    <description>Capability 1 — LLM provider abstraction: ProviderService with explicit name-to-ChatModel mapping (no type scanning).</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.nivroos</groupId>
+            <artifactId>nivroos-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Qwen (DashScope): Spring AI Alibaba protocol conversion only.
+             Auto tool execution must stay disabled — the ReAct loop calls tools itself (constitution).
+             The umbrella spring-ai-alibaba-starter is discontinued (last 1.0.0-M6.1), so provider
+             starters are referenced individually; DeepSeek/Kimi/Zhipu/Anthropic/OpenAI use the
+             Spring AI official spring-ai-starter-model-* artifacts (managed by spring-ai-bom),
+             added when ProviderService is implemented (US-1). -->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+            <version>${spring-ai-alibaba.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

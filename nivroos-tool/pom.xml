@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.nivroos</groupId>
+        <artifactId>nivroos</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>nivroos-tool</artifactId>
+    <name>NivroOS Tool</name>
+    <description>Capability 4 — plugin tool system: built-in tools, MCP client, ToolRegistry, Sandbox (WhitelistSandbox first).</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.nivroos</groupId>
+            <artifactId>nivroos-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Spring AI @Tool annotation: schema generation only (heavy-code plugin tier).
+             Version managed by the Spring AI Alibaba BOM. -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-model</artifactId>
+        </dependency>
+        <!-- MCP Java SDK: zero-code plugin tier (AGENT.md + MCP) -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

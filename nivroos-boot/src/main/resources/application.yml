@@ -1,0 +1,29 @@
+# NivroOS runtime configuration (bootstrap skeleton)
+#
+# Per the constitution, secrets are NEVER written here — only ${ENV_VAR} references.
+# SQLite file location and other runtime settings are overridable via environment
+# variables or command-line arguments (e.g. --spring.datasource.url=...).
+
+spring:
+  application:
+    name: nivroos
+  datasource:
+    # SQLite is not in Spring Boot's embedded-database list, so the driver
+    # class must be explicit. The file is created on first access.
+    url: jdbc:sqlite:${NIVROOS_DB:./nivroos.db}
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+  ai:
+    dashscope:
+      # Skeleton phase: disabled until ProviderService (US-1) wires the explicit
+      # name-to-ChatModel mapping. API keys are injected via ${ENV_VAR} only.
+      enabled: false
+
+logging:
+  level:
+    root: INFO
