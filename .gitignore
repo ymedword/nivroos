@@ -1,0 +1,49 @@
+# ===== Java / Maven / Gradle =====
+target/
+build/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+!**/src/main/**/mvnw*
+!**/src/test/**/mvnw*
+
+# Gradle
+.gradle/
+gradle-app.setting
+
+# ===== IDE 配置 =====
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# ===== OS 系统文件 =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 日志 / 临时文件 =====
+*.log
+logs/
+*.tmp
+*.temp
+
+# ===== 环境与密钥（敏感信息，切勿提交） =====
+.env
+.env.*
+*.pem
+*.key
+*.p12
+credentials.json
