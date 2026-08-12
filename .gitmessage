@@ -1,0 +1,19 @@
+<type>(<scope>): <subject>
+
+**Problem / Background:**
+<why this change exists: symptom, triggering scenario, root cause>
+
+**Design:**
+<how it is implemented: key decisions, structure, referenced principles>
+
+**Testing:**
+<how it was verified: commands, cases, results>
+
+**Impact:**
+<affected modules, dependencies/compatibility, follow-up items>
+
+# --- Fill-in notes (lines starting with # are ignored on commit) ---
+# type:  feat | fix | docs | refactor | chore | test | perf | style
+# scope: core | provider | memory | tool | web | storage | cli | boot (omit for global changes)
+# Subject: imperative mood, verb first, <= 72 chars. Delete sections you do not use.
+# Breaking changes: append "!" after type, or add "BREAKING CHANGE: ..." at the end.

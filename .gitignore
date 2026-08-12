@@ -47,3 +47,10 @@ logs/
 *.key
 *.p12
 credentials.json
+
+# ===== 运行时数据（SQLite） =====
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+data/
