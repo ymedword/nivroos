@@ -49,6 +49,22 @@
         <springdoc.version>2.8.17</springdoc.version>
         <!-- SQLite JDBC driver (nivroos-storage) -->
         <sqlite-jdbc.version>3.53.2.1</sqlite-jdbc.version>
+
+        <!-- Engineering quality gates. Versions verified against Maven Central metadata
+             (repo1.maven.org/maven2/.../maven-metadata.xml) on 2026-08-27;
+             re-verify before changing. See .claude/skills/init-foundation. -->
+        <spotless-maven-plugin.version>3.10.0</spotless-maven-plugin.version>
+        <google-java-format.version>1.36.1</google-java-format.version>
+        <spotbugs-maven-plugin.version>4.10.4.0</spotbugs-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
+        <dependency-check-maven.version>13.0.0</dependency-check-maven.version>
+        <findsecbugs-plugin.version>1.14.0</findsecbugs-plugin.version>
+        <!-- SpotBugs local suppression annotations (provided scope, not shipped at runtime) -->
+        <spotbugs.version>4.10.4</spotbugs.version>
+        <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
+        <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
+        <!-- Nightly NVD cache: CI / fork PRs without an NVD API key still get CVE data. -->
+        <nvd.datafeed.url>https://dependency-check.github.io/DependencyCheck_Builder/nvd_cache/</nvd.datafeed.url>
     </properties>
 
     <dependencyManagement>
@@ -89,6 +105,154 @@
                 <artifactId>sqlite-jdbc</artifactId>
                 <version>${sqlite-jdbc.version}</version>
             </dependency>
+            <!-- Structured logging: JSON encoder for Logback (prod profile) -->
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>${logstash-logback-encoder.version}</version>
+            </dependency>
+            <!-- SpotBugs local suppression annotations (provided, not shipped at runtime) -->
+            <dependency>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-annotations</artifactId>
+                <version>${spotbugs.version}</version>
+                <scope>provided</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <build>
+        <plugins>
+            <!-- Formatting: Google Java Style, checked at verify; fix locally with `mvn spotless:apply`. -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless-maven-plugin.version}</version>
+                <configuration>
+                    <java>
+                        <googleJavaFormat>
+                            <version>${google-java-format.version}</version>
+                        </googleJavaFormat>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotless-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Style fallback: Checkstyle google_checks at validate (errors only). Google Java Format
+                 handles formatting; this catches semantic style (naming, Javadoc structure...). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>${maven-checkstyle-plugin.version}</version>
+                <configuration>
+                    <configLocation>google_checks.xml</configLocation>
+                    <violationSeverity>error</violationSeverity>
+                    <failOnViolation>true</failOnViolation>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>checkstyle-validate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Static analysis: bytecode-level bug/security patterns; fails the build on findings.
+                 Find Security Bugs adds OWASP Top 10 patterns (SQLi, XSS, path traversal, weak crypto...). -->
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs-maven-plugin.version}</version>
+                <configuration>
+                    <effort>Max</effort>
+                    <threshold>Low</threshold>
+                    <plugins>
+                        <plugin>
+                            <groupId>com.h3xstream.findsecbugs</groupId>
+                            <artifactId>findsecbugs-plugin</artifactId>
+                            <version>${findsecbugs-plugin.version}</version>
+                        </plugin>
+                    </plugins>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotbugs-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Coverage: report only in core phase (no threshold gate; thresholds move to extension phase). -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- Heavy CVE scan: NOT in the default lifecycle (multi-minute NVD download).
+             Run manually or nightly: mvn -Psecurity verify  (set NVD_API_KEY to speed up). -->
+        <profile>
+            <id>security</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>${dependency-check-maven.version}</version>
+                        <configuration>
+                            <failBuildOnCVSS>7</failBuildOnCVSS>
+                            <!-- Nightly NVD cache: works without an NVD API key (slower);
+                                 set NVD_API_KEY for the authoritative feed. -->
+                            <nvdDatafeedUrl>${nvd.datafeed.url}</nvdDatafeedUrl>
+                            <ossIndexAnalyzerEnabled>false</ossIndexAnalyzerEnabled>
+                            <suppressionFile>${maven.multiModuleProjectDirectory}/config/dependency-check-suppressions.xml</suppressionFile>
+                            <formats>
+                                <format>HTML</format>
+                            </formats>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

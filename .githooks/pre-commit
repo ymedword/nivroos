@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# NivroOS pre-commit：提交前跑 Google 格式门禁（spotless:check，秒级）。
+# 失败时请运行 `mvn spotless:apply` 后重新提交。
+# 安装：git config core.hooksPath .githooks
+set -euo pipefail
+
+if ! mvn -B -q spotless:check; then
+  echo ""
+  echo "[pre-commit] 格式检查失败：请运行 mvn spotless:apply 后重新提交。"
+  exit 1
+fi

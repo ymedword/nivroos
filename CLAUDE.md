@@ -34,6 +34,7 @@ NivroOS 是用 Java 实现的面向企业场景的 **Agent OS**。装在企业�
 | 日志 | Logback + SLF4J（结构化日志） |
 | 指标 | Micrometer + Prometheus（扩展阶段） |
 | 构建 | Maven 多模块（9 个），`mvn clean package` 产出 fat JAR，`java -jar` 启动 |
+| 工程质量门禁 | Spotless 3.10.0（google-java-format 1.36.1）+ Checkstyle 3.6.0 + SpotBugs 4.10.4.0（挂 findsecbugs 1.14.0）+ JaCoCo 0.8.15 + OWASP dependency-check 13.0.0（`-Psecurity`）+ logstash-logback-encoder 9.0（prod JSON 日志；版本 2026-08-27/28 实测锁定） |
 
 ---
 
@@ -43,14 +44,15 @@ NivroOS 是用 Java 实现的面向企业场景的 **Agent OS**。装在企业�
 nivroos/
 ├── nivroos-core          # 核心抽象与引擎：NivroTool 接口、Session、Profile、ContextLoader、
 │                         #   AgentLoader、ReActLoop、PromptBuilder、ToolExecutor、AgentService、
-│                         #   AgentScheduler
+│                         #   AgentScheduler、MetricsRegistry（指标接口预留，扩展阶段换 Micrometer 实现）
 ├── nivroos-provider      # 能力一：ProviderService、Function Calling 适配、Provider 配置
 │                         #   （provider name → ChatModel 显式映射）
 ├── nivroos-memory        # 能力三：MemoryService 统一门面、LongTermMemory、MemoryTools
 ├── nivroos-tool          # 能力四（三合一）：内置 Tool（File/Shell/Http/Notify）、MCP Client、
 │                         #   ToolRegistry、Sandbox 接口 + WhitelistSandbox
 ├── nivroos-channel-cli   # CLI Channel：CliChannel、nivroos chat 命令
-├── nivroos-web           # 能力五：WebServer、6 个 ApiController、GlobalExceptionHandler、OpenAPI
+├── nivroos-web           # 能力五：WebServer、6 个 ApiController、ApiResponse/ErrorCode 信封、
+│                         #   GlobalExceptionHandler、OpenAPI
 ├── nivroos-storage       # 持久化：SQLite、SessionRepository、ToolInvocationRepository、
 │                         #   LlmCallRepository
 ├── nivroos-cli           # 命令行入口：Picocli 主入口、12 个子命令、ConfigLoader
@@ -496,7 +498,15 @@ US-1 对接 LLM → US-2 ReAct 循环 →（US-3 Memory ∥ US-4 Plugin Tool 并
 | `ProviderService` 结果按容器扫描 | 多 Provider Bean 类型相同产生歧义 | provider name 到 `ChatModel` 显式映射 |
 | `notify` 的 webhook 不过 Sandbox | 推送绕过域名白名单 | `WebhookNotifyAdapter` 发送前同样 `Sandbox.enforce(HTTP_REQUEST, url)` |
 | springdoc 用 3.x | fat JAR 混入 `spring-boot-webmvc`/`spring-boot-tomcat` 等 4.x 模块，启动报 `NoClassDefFoundError: ApplicationServletEnvironment` | 固定 springdoc 2.8.x（2.8.17；3.x 整条版本线只适配 Boot 4，已实测） |
-| 伞式 `spring-ai-alibaba-starter` | 1.1.2.x 坐标解析 404 / 版本缺失（BOM 只管理 8 个 artifact） | 按 provider 引用 `spring-ai-alibaba-starter-dashscope` 等，版本显式写 `${spring-ai-alibaba.version}`；DeepSeek/Kimi/Zhipu/Anthropic/OpenAI 用 Spring AI 官方 `spring-ai-starter-model-*`；配套实测：alibaba 1.1.2.3 ↔ Spring AI 1.1.2 ↔ Boot 3.5.x |
+| 伞式 `spring-ai-alibaba-starter` | 1.1.2.x 坐标解析 404 / 版本缺失（BOM 只管理 8 个 artifact） | 按 provider 引用 `spring-ai-alibaba-starter-dashscope` 等，版本显式写 `${spring-ai-alibaba.version}`；DeepSeek/Zhipu/Anthropic/OpenAI 用 Spring AI 官方 `spring-ai-starter-model-*`；配套实测：alibaba 1.1.2.3 ↔ Spring AI 1.1.2 ↔ Boot 3.5.x |
+| Kimi 用官方 kimi/moonshot starter | `spring-ai-starter-model-kimi` 不存在（404）；`spring-ai-starter-model-moonshot` 仅 1.0.0-M7 断更里程碑；1.1.x 最新 BOM（1.1.5）也不管理（均实测 2026-08-27） | Kimi 走 OpenAI 兼容通道：`spring-ai-starter-model-openai` 1.1.2 + Moonshot 兼容端点 api.moonshot.cn/v1（US-1 research §1） |
+| 格式问题手改代码 | `mvn verify` 的 spotless:check 挂掉，CI 与本地不一致 | `mvn spotless:apply` 后提交，不手改格式（init-foundation skill） |
+| OWASP dependency-check 绑进默认构建 | 每次构建下载 NVD 库，分钟级拖慢 demo 节奏 | 只放 `-Psecurity` profile 手动/夜间跑，`NVD_API_KEY` 加速 |
+| 质量插件版本随手升级 | 与实测锁定版本漂移、坐标解析失败 | 先 curl repo1.maven.org metadata 核实，再改根 POM properties 并标注日期 |
+| 用 actuator 做健康检查 | 与文档定死的 `/api/v1/health` 自定义端点重复 | 核心阶段不引 actuator/Micrometer；监控=结构化日志+MDC+审计表+`MetricsRegistry` 接口预留（原则九） |
+| Spring AI eager 自动装配 | 启动即创建 `ChatModel` 并索要 api-key，绕过 Provider 显式映射（原则二/三） | application.yml `autoconfigure.exclude` 排除 `OpenAiAutoConfiguration`，US-1 接入后保留 |
+| 用 `System.out` 打日志 | 输出无时间戳/级别/MDC，绕过 logback 与日志采集 | 统一 SLF4J（init-foundation skill 宪法条目） |
+| `schema.sql` 只有注释 | 启动报 `'script' must not be null or empty`（ScriptUtils 剥离注释后脚本为空） | 保留一条占位语句（如 `SELECT 1;`）直到首张表落地（已实测 2026-08-28） |
 
 ---
 
@@ -518,6 +528,7 @@ US-1 对接 LLM → US-2 ReAct 循环 →（US-3 Memory ∥ US-4 Plugin Tool 并
 - 版本矩阵已锁定在根 `pom.xml`：Spring Boot 3.5.16（3.x 最终版）、Spring AI Alibaba 1.1.2.3 + Spring AI 1.1.2、springdoc 2.8.17、sqlite-jdbc 3.53.2.1、picocli 4.7.7、MCP SDK 1.1.3；配套关系与陷阱见"常见陷阱"表
 - 骨架期 `spring.ai.dashscope.enabled: false`（无 API key）；US-1 实现 ProviderService 时开启，key 用 `${DASHSCOPE_API_KEY}` 注入
 - 构建命令：`mvn clean package`（产物 `nivroos-boot/target/nivroos-boot-0.1.0.jar`，`java -jar` 启动）
+- **工程地基已初始化（2026-08-28）**：质量门禁（`mvn verify` = Spotless + Checkstyle + SpotBugs/findsecbugs + 测试 + JaCoCo 报告）、日志 dev/prod 双 profile（dev 彩色控制台+滚动文件 / prod JSON，MDC：sessionId/traceId）、虚拟线程开启（`spring.threads.virtual.enabled=true`）、SQLite WAL + `ddl-auto: none` + `schema.sql` 幂等建表（表结构变更一律改 schema.sql）、Spring AI eager 装配已排除、`nivroos-web` 规范层（ApiResponse/ErrorCode/GlobalExceptionHandler）、`nivroos-core` MetricsRegistry 接口预留、pre-commit（`git config core.hooksPath .githooks`）+ GitHub Actions 门禁工作流；初始化流程固化为项目 skill `/init-foundation`（`.claude/skills/init-foundation/`）
 
 ## 环境
 

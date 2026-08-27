@@ -1,0 +1,22 @@
+# NivroOS 编辑器通用约定。
+# 格式权威是 Spotless(google-java-format) 的 mvn spotless:check/apply，
+# 本文件只保证 IDE 默认行为与门禁方向一致。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.java]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false

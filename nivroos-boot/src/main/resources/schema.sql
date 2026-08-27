@@ -1,0 +1,14 @@
+-- NivroOS 表结构（唯一权威，幂等：CREATE TABLE IF NOT EXISTS）。
+--
+-- 维护纪律（CLAUDE.md 常见陷阱表）：表结构变更 = 手动改本文件，
+-- 不依赖 Hibernate ddl-auto（application.yml 已设 ddl-auto: none；
+-- SQLite 的 ALTER TABLE 支持很弱）。
+--
+-- 五张核心表的定义见 CLAUDE.md「SQLite 核心表」：
+--   sessions / tool_invocations / llm_calls / scheduled_tasks / task_executions
+-- 随 US-1（storage 模块）起逐个落地。
+--
+-- 占位语句：Spring ScriptUtils 会剥离注释，纯注释文件会触发
+-- "'script' must not be null or empty" 断言导致启动失败（CLAUDE.md 陷阱表）。
+-- 首张表落地后此句删除。
+SELECT 1;

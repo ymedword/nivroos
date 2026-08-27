@@ -1,22 +1,41 @@
-# NivroOS runtime configuration (bootstrap skeleton)
+# NivroOS runtime configuration
 #
 # Per the constitution, secrets are NEVER written here — only ${ENV_VAR} references.
-# SQLite file location and other runtime settings are overridable via environment
-# variables or command-line arguments (e.g. --spring.datasource.url=...).
+# Runtime settings are overridable via environment variables or command-line arguments
+# (e.g. --spring.datasource.url=...).
 
 spring:
   application:
     name: nivroos
+  # 原则二/三：禁用 Spring AI eager 自动装配。OpenAI 系 starter（DeepSeek/Kimi 走 OpenAI
+  # 兼容通道）会急切创建 ChatModel 并索要 api-key，绕过 ProviderService 的显式映射；
+  # US-1 接入后此排除必须保留。
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
+  threads:
+    virtual:
+      enabled: true   # 原则七：同步执行模型 + JDK 21 虚拟线程扛并发
   datasource:
     # SQLite is not in Spring Boot's embedded-database list, so the driver
     # class must be explicit. The file is created on first access.
     url: jdbc:sqlite:${NIVROOS_DB:./nivroos.db}
     driver-class-name: org.sqlite.JDBC
+    hikari:
+      data-source-properties:
+        journal_mode: WAL        # SQLite 写并发（读不阻塞写）
+        busy_timeout: 5000       # 锁等待，避免虚拟线程并发写时报 database is locked
   jpa:
     database-platform: org.hibernate.community.dialect.SQLiteDialect
     hibernate:
-      ddl-auto: update
+      # 表结构唯一权威是 schema.sql（幂等 CREATE TABLE IF NOT EXISTS）；
+      # SQLite 下 Hibernate ALTER TABLE 支持很弱，不用 ddl-auto=update 迁移
+      # （CLAUDE.md 常见陷阱表）。
+      ddl-auto: none
     open-in-view: false
+  sql:
+    init:
+      mode: always   # 启动执行 schema.sql
 
   ai:
     dashscope:
@@ -27,3 +46,4 @@ spring:
 logging:
   level:
     root: INFO
+    # 日志格式/追加器见 logback-spring.xml（dev 彩色控制台+文件 / prod JSON）

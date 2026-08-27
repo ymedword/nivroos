@@ -61,6 +61,12 @@
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
 
+        <!-- Structured logging: JSON encoder for the prod logback profile -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
