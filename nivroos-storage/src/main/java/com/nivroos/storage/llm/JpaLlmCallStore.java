@@ -19,6 +19,7 @@ public class JpaLlmCallStore implements LlmCallStore {
 
   @Override
   public void record(
+      String sessionId,
       String provider,
       String model,
       Integer promptTokens,
@@ -26,6 +27,7 @@ public class JpaLlmCallStore implements LlmCallStore {
       Integer totalTokens,
       long durationMs) {
     LlmCall call = new LlmCall();
+    call.setSessionId(sessionId);
     call.setProvider(provider);
     call.setModel(model);
     call.setPromptTokens(promptTokens);

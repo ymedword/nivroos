@@ -54,3 +54,6 @@ credentials.json
 *.db-shm
 *.db-wal
 data/
+
+# 本地密钥文件（FR-003 双通道：明文只允许放这里，绝不入库）
+nivroos-secrets.yml

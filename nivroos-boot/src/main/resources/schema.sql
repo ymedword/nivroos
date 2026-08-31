@@ -20,3 +20,16 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     duration_ms        BIGINT       NOT NULL,
     created_at         TIMESTAMP    NOT NULL
 );
+
+-- US-2（核心能力二）：工具调用审计（需求文档 §10 九列，含 success/error_message）
+CREATE TABLE IF NOT EXISTS tool_invocations (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id    VARCHAR(255),
+    tool_name     VARCHAR(64)  NOT NULL,
+    input_json    TEXT,
+    result_json   TEXT,
+    success       BOOLEAN      NOT NULL,
+    error_message TEXT,
+    duration_ms   BIGINT       NOT NULL,
+    created_at    TIMESTAMP    NOT NULL
+);

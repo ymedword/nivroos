@@ -499,12 +499,13 @@ US-1 对接 LLM → US-2 ReAct 循环 →（US-3 Memory ∥ US-4 Plugin Tool 并
 | `notify` 的 webhook 不过 Sandbox | 推送绕过域名白名单 | `WebhookNotifyAdapter` 发送前同样 `Sandbox.enforce(HTTP_REQUEST, url)` |
 | springdoc 用 3.x | fat JAR 混入 `spring-boot-webmvc`/`spring-boot-tomcat` 等 4.x 模块，启动报 `NoClassDefFoundError: ApplicationServletEnvironment` | 固定 springdoc 2.8.x（2.8.17；3.x 整条版本线只适配 Boot 4，已实测） |
 | 伞式 `spring-ai-alibaba-starter` | 1.1.2.x 坐标解析 404 / 版本缺失（BOM 只管理 8 个 artifact） | 按 provider 引用 `spring-ai-alibaba-starter-dashscope` 等，版本显式写 `${spring-ai-alibaba.version}`；DeepSeek/Zhipu/Anthropic/OpenAI 用 Spring AI 官方 `spring-ai-starter-model-*`；配套实测：alibaba 1.1.2.3 ↔ Spring AI 1.1.2 ↔ Boot 3.5.x |
-| Kimi 用官方 kimi/moonshot starter | `spring-ai-starter-model-kimi` 不存在（404）；`spring-ai-starter-model-moonshot` 仅 1.0.0-M7 断更里程碑；1.1.x 最新 BOM（1.1.5）也不管理（均实测 2026-08-27） | Kimi 走 OpenAI 兼容通道：`spring-ai-starter-model-openai` 1.1.2 + Moonshot 兼容端点 api.moonshot.cn/v1（US-1 research §1） |
+| Kimi 用官方 kimi/moonshot starter | `spring-ai-starter-model-kimi` 不存在（404）；`spring-ai-starter-model-moonshot` 仅 1.0.0-M7 断更里程碑；1.1.x 最新 BOM（1.1.5）也不管理（均实测 2026-08-27） | Kimi 走 OpenAI 兼容通道：`spring-ai-starter-model-openai` 1.1.2 + Moonshot 兼容端点，base-url 配 `https://api.moonshot.cn`（**不带 /v1**——OpenAiApi 自行追加路径，带 /v1 会 404 /v1/v1，实测 2026-08-31）（US-1 research §1） |
 | 格式问题手改代码 | `mvn verify` 的 spotless:check 挂掉，CI 与本地不一致 | `mvn spotless:apply` 后提交，不手改格式（init-foundation skill） |
 | OWASP dependency-check 绑进默认构建 | 每次构建下载 NVD 库，分钟级拖慢 demo 节奏 | 只放 `-Psecurity` profile 手动/夜间跑，`NVD_API_KEY` 加速 |
 | 质量插件版本随手升级 | 与实测锁定版本漂移、坐标解析失败 | 先 curl repo1.maven.org metadata 核实，再改根 POM properties 并标注日期 |
 | 用 actuator 做健康检查 | 与文档定死的 `/api/v1/health` 自定义端点重复 | 核心阶段不引 actuator/Micrometer；监控=结构化日志+MDC+审计表+`MetricsRegistry` 接口预留（原则九） |
-| Spring AI eager 自动装配 | 启动即创建 `ChatModel` 并索要 api-key，绕过 Provider 显式映射（原则二/三） | application.yml `autoconfigure.exclude` 排除 `OpenAiAutoConfiguration`，US-1 接入后保留 |
+| Spring AI eager 自动装配 | 启动即创建 `ChatModel` 并索要 api-key，绕过 Provider 显式映射（原则二/三） | application.yml `autoconfigure.exclude` 排除：`OpenAiAutoConfiguration` + `DeepSeekChatAutoConfiguration` + OpenAI 系全部六个（Chat/Embedding/Image/AudioSpeech/AudioTranscription/Moderation）；ChatModel 一律由 `ProviderAutoConfiguration` 显式构造（2026-08-31 实测补全清单）。另：Boot 3.5 绑定器对 `@ConfigurationProperties` 的 `${ENV_VAR}` 保持字面量不解析，构建 ChatModel 前必须 `environment.resolvePlaceholders(...)` 显式解析 |
+| `Environment.getProperty(key, List.class)` 读 YAML 列表 | 返回 null（列表以索引键存储），白名单变空导致 Sandbox 全拒 | 用 `Binder.get(environment).bind("key", Bindable.listOf(String.class))` 读取（2026-08-31 Demo 实测） |
 | 用 `System.out` 打日志 | 输出无时间戳/级别/MDC，绕过 logback 与日志采集 | 统一 SLF4J（init-foundation skill 宪法条目） |
 | `schema.sql` 只有注释 | 启动报 `'script' must not be null or empty`（ScriptUtils 剥离注释后脚本为空） | 保留一条占位语句（如 `SELECT 1;`）直到首张表落地（已实测 2026-08-28） |
 

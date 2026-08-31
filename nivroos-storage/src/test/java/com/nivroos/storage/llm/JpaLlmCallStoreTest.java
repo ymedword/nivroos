@@ -51,11 +51,12 @@ class JpaLlmCallStoreTest {
   @Test
   @DisplayName("写入后可读出，字段与实际一致")
   void recordThenFind_roundTripsFields() {
-    llmCallStore.record("deepseek", "deepseek-chat", 12, 3, 15, 1234L);
+    llmCallStore.record("s-1", "deepseek", "deepseek-chat", 12, 3, 15, 1234L);
 
     var rows = repository.findAll();
     assertThat(rows).hasSize(1);
     var row = rows.get(0);
+    assertThat(row.getSessionId()).isEqualTo("s-1");
     assertThat(row.getProvider()).isEqualTo("deepseek");
     assertThat(row.getModel()).isEqualTo("deepseek-chat");
     assertThat(row.getPromptTokens()).isEqualTo(12);
@@ -68,7 +69,7 @@ class JpaLlmCallStoreTest {
   @Test
   @DisplayName("token 三列与 session_id 可空（失败调用/厂商未返回场景）")
   void nullableColumns_acceptNulls() {
-    llmCallStore.record("kimi", "moonshot-v1-8k", null, null, null, 89L);
+    llmCallStore.record(null, "kimi", "moonshot-v1-8k", null, null, null, 89L);
 
     var row = repository.findAll().get(0);
     assertThat(row.getSessionId()).isNull();
@@ -81,8 +82,8 @@ class JpaLlmCallStoreTest {
   @Test
   @DisplayName("多次写入逐条落库，不覆盖")
   void repeatedRecords_accumulateRows() {
-    llmCallStore.record("deepseek", "deepseek-chat", 1, 1, 2, 10L);
-    llmCallStore.record("kimi", "moonshot-v1-8k", null, null, null, 20L);
+    llmCallStore.record("s-1", "deepseek", "deepseek-chat", 1, 1, 2, 10L);
+    llmCallStore.record("s-2", "kimi", "moonshot-v1-8k", null, null, null, 20L);
 
     assertThat(repository.count()).isEqualTo(2);
   }

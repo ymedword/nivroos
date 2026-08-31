@@ -76,7 +76,8 @@ class SpringAiProviderServiceTest {
         ProviderCallException.class, () -> service.call(profileUsing(DEEPSEEK), request()));
 
     verify(audit)
-        .record(eq(DEEPSEEK), eq("deepseek-model"), isNull(), isNull(), isNull(), anyLong());
+        .record(
+            isNull(), eq(DEEPSEEK), eq("deepseek-model"), isNull(), isNull(), isNull(), anyLong());
   }
 
   @Test
@@ -140,7 +141,31 @@ class SpringAiProviderServiceTest {
     assertThat(response.toolCalls())
         .containsExactly(new ToolCallRequest("http_get", "{\"url\":\"https://x\"}"));
     assertThat(response.usage()).isEqualTo(new Usage(12, 3, 15));
-    verify(audit).record(eq(DEEPSEEK), eq("deepseek-model"), eq(12), eq(3), eq(15), anyLong());
+    verify(audit)
+        .record(isNull(), eq(DEEPSEEK), eq("deepseek-model"), eq(12), eq(3), eq(15), anyLong());
+  }
+
+  @Test
+  @DisplayName("回归（US-2 修复）：历史含 null 内容的 assistant/tool 消息时不炸（带工具调用的响应 content 为 null）")
+  void callWithNullContentHistoryMessages_doesNotThrow() {
+    ChatModel model = mock(ChatModel.class);
+    ProviderService service =
+        new SpringAiProviderService(Map.of(DEEPSEEK, model), new FunctionCallingAdapter(), audit);
+    when(model.call(any(Prompt.class))).thenReturn(responseWith("answer"));
+
+    ChatRequest requestWithNulls =
+        new ChatRequest(
+            List.of(
+                new Message("user", "查天气"),
+                new Message("assistant", null), // 带工具调用的响应 content 为 null
+                new Message("tool", null)),
+            "s-1",
+            List.of());
+
+    var response = service.call(profileUsing(DEEPSEEK), requestWithNulls);
+
+    assertThat(response.content()).isEqualTo("answer");
+    verify(model).call(any(Prompt.class));
   }
 
   @Test

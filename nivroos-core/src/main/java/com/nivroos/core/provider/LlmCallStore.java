@@ -12,6 +12,7 @@ public interface LlmCallStore {
   /**
    * 写入一条调用记录（成功与失败都写）。
    *
+   * @param sessionId 会话关联（US-2 起填充；US-1 阶段可为 null）
    * @param provider 供应商名称
    * @param model 模型名
    * @param promptTokens 输入 token（失败或厂商未返回时 null）
@@ -20,6 +21,7 @@ public interface LlmCallStore {
    * @param durationMs 实际耗时（含失败调用）
    */
   void record(
+      String sessionId,
       String provider,
       String model,
       Integer promptTokens,

@@ -7,12 +7,27 @@
 spring:
   application:
     name: nivroos
+  config:
+    # FR-003 双通道之二：独立本地配置文件（不入 git，见根 .gitignore）。
+    # 文件缺失不影响启动；存在时其明文 api-key 会被 ProviderProperties 放行
+    import: optional:file:./nivroos-secrets.yml
   # 原则二/三：禁用 Spring AI eager 自动装配。OpenAI 系 starter（DeepSeek/Kimi 走 OpenAI
   # 兼容通道）会急切创建 ChatModel 并索要 api-key，绕过 ProviderService 的显式映射；
   # US-1 接入后此排除必须保留。
   autoconfigure:
     exclude:
       - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
+      # DeepSeek starter 的 eager 装配同样必须排除：它按 spring.ai.deepseek.* 索要
+      # api-key 并自建 ChatModel，绕过显式映射（CLAUDE.md 陷阱表，2026-08-31 实测）
+      - org.springframework.ai.model.deepseek.autoconfigure.DeepSeekChatAutoConfiguration
+      # OpenAI 兼容通道（Kimi）的六个 eager 装配全部排除：ChatModel 由
+      # ProviderAutoConfiguration 显式构造（2026-08-31 实测逐一触发）
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
   threads:
     virtual:
       enabled: true   # 原则七：同步执行模型 + JDK 21 虚拟线程扛并发
@@ -51,8 +66,15 @@ nivroos:
       api-key: ${DEEPSEEK_API_KEY}
     kimi:
       # 无官方 GA starter，经 OpenAI 兼容端点接入（实测 2026-08-27）
+      # 注意：OpenAiApi 自行追加 /v1 路径，base-url 不得带 /v1（会 404 /v1/v1，2026-08-31 实测）
       api-key: ${KIMI_API_KEY}
-      base-url: https://api.moonshot.cn/v1
+      base-url: https://api.moonshot.cn
+
+# 沙箱 HTTP 域名白名单（宪法原则六；通配符 *.example.com 匹配裸域名与子域名）
+http:
+  allowed_domains:
+    - wttr.in
+    - api.github.com
 
 logging:
   level:

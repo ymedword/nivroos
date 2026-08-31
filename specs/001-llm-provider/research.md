@@ -18,8 +18,10 @@
   实测：`spring-ai-starter-model-openai` 1.1.2 存在；1.1.x 最新 BOM（1.1.5）
   仍不管理 kimi/moonshot——升级 1.1.x 无济于事，2.x 配套未实测不能动。接入
   方案定为 **OpenAI 兼容通道**：`spring-ai-starter-model-openai` 1.1.2 +
-  Moonshot 兼容端点（api.moonshot.cn/v1，Kimi 官方 OpenAI 兼容接口，符合
-  需求文档 §8.4 协议基线）；模型名以 Moonshot 官方当前口径在配置时核实。
+  Moonshot 兼容端点（base-url 配 `https://api.moonshot.cn`——OpenAiApi 自行
+  追加 `/v1` 路径，写 `/v1` 结尾会 404 `/v1/v1`，2026-08-31 实测）；模型名以
+  Moonshot 官方当前口径在配置时核实（实测账户可用 2026-08-31：kimi-k2.6 /
+  kimi-k2.7-code / kimi-k3；moonshot-v1-8k 已退役 404）。
   通义 DashScope 依赖已就绪，作为额外候选保留不接入。
 - **Alternatives considered**: 伞式 `spring-ai-alibaba-starter`（已弃更、坐标 404
   风险）；升级 Spring AI 2.x（配套未实测，违反版本锁定纪律）。

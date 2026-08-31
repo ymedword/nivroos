@@ -59,7 +59,8 @@ US-1 阶段的验证以自动测试 + 配置校验 + 审计落库核对为主。
 
 - `llm_calls.session_id` 本阶段为空（US-2 起填充）；
 - Kimi 无官方 GA starter（research §1），经 OpenAI 兼容通道接入（官方 openai
-  starter + Moonshot 兼容端点）；模型名以 Moonshot 官方当前口径配置时核实。
+  starter + Moonshot 兼容端点 `https://api.moonshot.cn`，不带 `/v1` 后缀）；
+  模型名以 Moonshot 官方当前口径配置时核实。
 
 ## 联合验收（SC-005）
 

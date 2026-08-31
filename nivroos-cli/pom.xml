@@ -35,6 +35,12 @@
             <artifactId>nivroos-storage</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- ChatCommand 组装工具池需要 Sandbox/HttpTools（内部模块依赖，US-2 新增） -->
+        <dependency>
+            <groupId>com.nivroos</groupId>
+            <artifactId>nivroos-tool</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli</artifactId>

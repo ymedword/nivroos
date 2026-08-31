@@ -66,6 +66,7 @@ public class SpringAiProviderService implements ProviderService {
       long duration = System.currentTimeMillis() - startedAt;
       Usage usage = toUsage(response);
       audit.record(
+          request.sessionId(),
           providerName,
           modelName,
           usage == null ? null : usage.promptTokens(),
@@ -81,7 +82,7 @@ public class SpringAiProviderService implements ProviderService {
     } catch (RuntimeException e) {
       long duration = System.currentTimeMillis() - startedAt;
       // 调用失败也留痕（token 记空、duration 记实际耗时），再把错误抛给上层处理
-      audit.record(providerName, modelName, null, null, null, duration);
+      audit.record(request.sessionId(), providerName, modelName, null, null, null, duration);
       log.warn(
           "Provider call failed: provider={}, model={}, durationMs={}",
           sanitizeForLog(providerName),
@@ -113,11 +114,13 @@ public class SpringAiProviderService implements ProviderService {
   }
 
   private static org.springframework.ai.chat.messages.Message toSpringMessage(Message message) {
-    // US-1 阶段覆盖 system/user/assistant；tool 角色消息随 US-2 工具回填引入
+    // US-2 起含 tool 角色回填消息；带工具调用的 assistant 响应 content 可能为 null，
+    // 一律兜底为空串——Spring AI 校验 SYSTEM/USER 消息 content 非空（2026-08-31 实测）
+    String content = message.content() == null ? "" : message.content();
     return switch (message.role()) {
-      case "system" -> new SystemMessage(message.content());
-      case "assistant" -> new AssistantMessage(message.content());
-      default -> new UserMessage(message.content());
+      case "system" -> new SystemMessage(content);
+      case "assistant" -> new AssistantMessage(content);
+      default -> new UserMessage(content);
     };
   }
 

@@ -37,6 +37,15 @@
    1.0.0-M7、1.1.x 最新 BOM 不管理，均 2026-08-27 实测）。动手前先跑
    `mvn dependency:tree` 确认锁定 BOM 内目标依赖存在。本模块实测结论见
    `specs/001-llm-provider/research.md` §1。
+4. **eager 自动装配必须全量排除**（2026-08-31 实测）：DeepSeek/OpenAI 系
+   starter 共 7 个自动装配类（DeepSeekChatAutoConfiguration + OpenAI 的
+   Chat/Embedding/Image/AudioSpeech/AudioTranscription/Moderation），漏排
+   任何一个都会启动即索要 api-key；ChatModel 一律由 ProviderAutoConfiguration
+   显式构造。排除清单以 application.yml 为准。
+5. **`${ENV_VAR}` 解析责任在实现侧**（2026-08-31 实测）：Boot 3.5 绑定器对
+   `@ConfigurationProperties` 的占位符保持字面量——构建 ChatModel 前必须
+   `environment.resolvePlaceholders(...)`；明文校验按**原始配置值**判断
+   （绑定值已被解析/未解析无法区分来源）。
 
 ## 3. 交付物清单
 
@@ -67,7 +76,8 @@ nivroos:
       api-key: ${DEEPSEEK_API_KEY}
     kimi:
       api-key: ${KIMI_API_KEY}
-      base-url: https://api.moonshot.cn/v1   # 无官方 GA starter，经兼容端点
+      # 无官方 GA starter，经兼容端点；不带 /v1（OpenAiApi 自行追加，实测 2026-08-31）
+      base-url: https://api.moonshot.cn
 ```
 
 ```yaml

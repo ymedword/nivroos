@@ -119,7 +119,15 @@ implement 期间逐任务执行，附加门禁：
 - **写前（H3）**：涉及第三方 API 的任务，先在本地依赖核实方法存在；核实不到 →
   软门禁。
 - **写中（H1/H5）**：只创建交付物点名的对外概念；已定字面量逐字保真；异常不吞
-  （catch 必落审计/日志或上抛）；不建文档外抽象层；注释只写"为什么"。
+  （catch 必落审计/日志或上抛）；**可观测性双轨**：失败路径审计落库与 WARN
+  日志两者都要（只落审计不记日志 = 线上排障黑洞，2026-08-31 实测）；不建文档
+  外抽象层；注释只写"为什么"。**静态门禁修复模式**（2026-08-31 实测总结）：
+  ①记录类可变集合用紧凑构造器 `List.copyOf` 防御（SpotBugs 认可，无需抑制）
+  ②绑定/值对象 getter/setter 抑制按需拆分（getter 只报 EI_EXPOSE_REP、setter
+  只报 EI_EXPOSE_REP2，多余抑制报 US_USELESS_SUPPRESSION）
+  ③findsecbugs CRLF_INJECTION_LOGS：参数经 sanitizeForLog（CR/LF 剥离）+
+  方法级理由抑制（异常对象仅堆栈附加）
+  ④装配类持有 Spring Environment 属容器惯用法，理由抑制即可。
   核心逻辑实现必须与颗粒度文档第 2 节的「核心逻辑」流程图/伪代码**逐块对照
   落地**（同构性核对，签名逐字一致）。**注释语言**（遵循项目 CLAUDE.md
   约定）：正文中文为主，英文标识符/术语保留原文不翻译；**关键注释（类级/方法级/
@@ -206,6 +214,8 @@ implement 期间逐任务执行，附加门禁：
 
 - 全量门禁：`mvn clean verify`（Spotless + Checkstyle + SpotBugs(findsecbugs) +
   测试 + JaCoCo）
+- **模块级构建必须带 `-am`**：`mvn -pl <模块> -am test`——不带会解析本地仓库的
+  旧版本模块 jar，测试静默失败或发现失败（2026-08-31 实测踩坑；CI 全量构建不受影响）
 - 新增第三方依赖或交付收尾时：`mvn -Psecurity verify`（OWASP dependency-check）
 - 格式修复只许 `mvn spotless:apply`，禁手改（pre-commit 会拦）
 

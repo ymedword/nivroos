@@ -25,3 +25,12 @@ nivroos:
 
 - 装配期（Spring 上下文启动）：ProviderProperties 绑定后即校验，非法配置直接
   拒绝启动并输出指明具体项的错误——不静默失败。
+
+## 双通道（FR-003）
+
+- 通道一：环境变量占位（`${ENV_VAR}`），application.yml 中的默认形态。
+- 通道二：独立本地配置文件 `nivroos-secrets.yml`（运行目录下，`optional:file:`
+  导入，根 `.gitignore` 排除，绝不入库）。该文件中的明文 api-key 会被校验放行；
+  **application.yml 里的明文仍然拒绝**。两通道并存时文件值优先于占位符。
+  实现细节：明文检查按原始配置值 + 来源文件判断（2026-08-31 实测：Boot 3.5
+  绑定器对 `${ENV_VAR}` 保持字面量，无法在绑定值上区分来源）。

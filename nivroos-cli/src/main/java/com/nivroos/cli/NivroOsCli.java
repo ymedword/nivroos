@@ -16,11 +16,11 @@ import picocli.CommandLine.Command;
     description = "NivroOS — 企业级 Agent OS",
     mixinStandardHelpOptions = true,
     versionProvider = ManifestVersionProvider.class,
-    subcommands = {VersionCommand.class})
+    subcommands = {VersionCommand.class, InitCommand.class})
 public class NivroOsCli implements Runnable {
 
   /** 已注册的子命令名（不含 help——Picocli 自动提供），用于启动分发判断 */
-  private static final Set<String> REGISTERED_COMMANDS = Set.of("version");
+  private static final Set<String> REGISTERED_COMMANDS = Set.of("version", "init");
 
   private static final CommandLine LINE = new CommandLine(new NivroOsCli());
 

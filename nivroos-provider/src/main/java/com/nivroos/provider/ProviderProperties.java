@@ -4,6 +4,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.core.env.ConfigurableEnvironment;
 
 /**
  * 供应商全局配置（契约 contracts/provider-config.md）。
@@ -36,24 +37,29 @@ public class ProviderProperties {
   /**
    * 装配期校验（非法配置直接拒绝启动，不静默失败）。
    *
-   * <p>Startup validation; throws with the exact config key path on violation. Unresolved
-   * ${ENV_VAR} placeholders are also rejected here because the config binder may leave them literal
-   * instead of failing (Boot 3.5 behavior, verified empirically).
+   * <p>Two distinct checks: (1) plaintext is detected on the RAW config value from the property
+   * sources - the bound value cannot be used because Spring resolves ${ENV_VAR} placeholders into
+   * real keys, which would be indistinguishable from plaintext; (2) an unresolved placeholder means
+   * the environment variable is missing (the Boot 3.5 binder leaves it literal instead of failing,
+   * verified empirically) - reject with the exact variable name.
    */
-  public void validate() {
+  public void validate(ConfigurableEnvironment environment) {
     providers.forEach(
         (name, config) -> {
           String keyPath = "nivroos.providers." + name + ".api-key";
           if (config == null || config.getApiKey() == null || config.getApiKey().isBlank()) {
             throw new IllegalStateException("Missing required config: " + keyPath);
           }
-          String apiKey = config.getApiKey();
-          if (!apiKey.startsWith("${")) {
+          // 检查一：明文拒绝——按原始配置值判断（绑定值已被 Spring 解析，无法区分来源）
+          // 例外：来自本地密钥文件 nivroos-secrets.yml 的明文值放行（FR-003 双通道之二）
+          String raw = findRawValue(environment, keyPath);
+          if (raw != null && !raw.startsWith("${") && !fromSecretsFile(environment, keyPath)) {
             throw new IllegalStateException(
                 "api-key must be an ${ENV_VAR} placeholder, plaintext is forbidden: " + keyPath);
           }
-          if (apiKey.endsWith("}")) {
-            // 绑定层未解析成功的占位符保持字面量：环境变量未设置必须报错指明缺失项
+          // 检查二：绑定值仍是 ${ENV} 字面量 = 环境变量未设置，报错指明缺失项
+          String apiKey = config.getApiKey();
+          if (apiKey.startsWith("${") && apiKey.endsWith("}")) {
             String envName = apiKey.substring(2, apiKey.length() - 1);
             if (System.getenv(envName) == null) {
               throw new IllegalStateException(
@@ -61,6 +67,27 @@ public class ProviderProperties {
             }
           }
         });
+  }
+
+  /** 在属性源里查找键的原始（未解析）值；找不到返回 null。 */
+  private static String findRawValue(ConfigurableEnvironment environment, String key) {
+    for (org.springframework.core.env.PropertySource<?> source : environment.getPropertySources()) {
+      Object value = source.getProperty(key);
+      if (value != null) {
+        return String.valueOf(value);
+      }
+    }
+    return null;
+  }
+
+  /** 键的值是否来自本地密钥文件（FR-003 双通道：独立本地配置文件）。 */
+  private static boolean fromSecretsFile(ConfigurableEnvironment environment, String key) {
+    for (org.springframework.core.env.PropertySource<?> source : environment.getPropertySources()) {
+      if (source.getProperty(key) != null && source.getName().contains("nivroos-secrets.yml")) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** 单个供应商配置（name = 外层 map 键）。 */
