@@ -6,9 +6,17 @@
 --
 -- 五张核心表的定义见 CLAUDE.md「SQLite 核心表」：
 --   sessions / tool_invocations / llm_calls / scheduled_tasks / task_executions
--- 随 US-1（storage 模块）起逐个落地。
---
--- 占位语句：Spring ScriptUtils 会剥离注释，纯注释文件会触发
--- "'script' must not be null or empty" 断言导致启动失败（CLAUDE.md 陷阱表）。
--- 首张表落地后此句删除。
-SELECT 1;
+-- 随各 US 逐个落地（US-1：llm_calls）。
+
+-- US-1（核心能力一）：LLM 调用审计（需求文档 §10 九列，不加不减）
+CREATE TABLE IF NOT EXISTS llm_calls (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id         VARCHAR(255),
+    provider           VARCHAR(64)  NOT NULL,
+    model              VARCHAR(128) NOT NULL,
+    prompt_tokens      INTEGER,
+    completion_tokens  INTEGER,
+    total_tokens       INTEGER,
+    duration_ms        BIGINT       NOT NULL,
+    created_at         TIMESTAMP    NOT NULL
+);

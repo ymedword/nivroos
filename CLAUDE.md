@@ -529,9 +529,10 @@ US-1 对接 LLM → US-2 ReAct 循环 →（US-3 Memory ∥ US-4 Plugin Tool 并
 - 骨架期 `spring.ai.dashscope.enabled: false`（无 API key）；US-1 实现 ProviderService 时开启，key 用 `${DASHSCOPE_API_KEY}` 注入
 - 构建命令：`mvn clean package`（产物 `nivroos-boot/target/nivroos-boot-0.1.0.jar`，`java -jar` 启动）
 - **工程地基已初始化（2026-08-28）**：质量门禁（`mvn verify` = Spotless + Checkstyle + SpotBugs/findsecbugs + 测试 + JaCoCo 报告）、日志 dev/prod 双 profile（dev 彩色控制台+滚动文件 / prod JSON，MDC：sessionId/traceId）、虚拟线程开启（`spring.threads.virtual.enabled=true`）、SQLite WAL + `ddl-auto: none` + `schema.sql` 幂等建表（表结构变更一律改 schema.sql）、Spring AI eager 装配已排除、`nivroos-web` 规范层（ApiResponse/ErrorCode/GlobalExceptionHandler）、`nivroos-core` MetricsRegistry 接口预留、pre-commit（`git config core.hooksPath .githooks`）+ GitHub Actions 门禁工作流；初始化流程固化为项目 skill `/init-foundation`（`.claude/skills/init-foundation/`）
+- **依赖安全抑制已评审（2026-08-31，US-1 交付）**：`config/dependency-check-suppressions.xml` 8 组抑制经用户决议——核心阶段接受风险（内网假设+路径不执行）；**发布前必须执行依赖升级专项**（Spring AI/Boot 版本线配套重测）并逐组复核抑制
 
 ## 环境
 
 - 当前会话模型：`deepseek-v4-flash`（`/model` 可查看/切换）
 - 平台：Windows 11（Git Bash shell），仓库 `d:\code\nivroos`
-- 文档、代码注释使用中文
+- 文档、代码注释使用中文；关键注释（类级/方法级/复杂逻辑段）中英并列，中文在前、英文在后

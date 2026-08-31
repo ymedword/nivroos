@@ -6,6 +6,110 @@
        <notes><![CDATA[CVE-xxxx-xxxx 误报：xxx 仅影响官方 UI，NivroOS 不使用该模块]]></notes>
        <cve>CVE-xxxx-xxxx</cve>
      </suppress>
+
+     评审记录：2026-08-31 用户评审本文件全部 8 组抑制（US-1 交付），决议：
+     核心阶段接受风险（内网部署假设 + 抑制路径不执行）；【发布前必须执行】
+     依赖升级专项（Spring AI / Boot 版本线配套重测），完成后逐组复核并移除仍适用的抑制。
 -->
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+    <!-- CVE-2023-39022：CPE 误报。该 CVE 对应 JavaScript 包（import-in-the-middle），
+         dependency-check 按 CPE 启发式误匹配到本项目内部模块（2026-08-27 实测）。 -->
+    <suppress>
+        <notes><![CDATA[CPE false positive: CVE-2023-39022 affects a JavaScript package (import-in-the-middle); heuristic CPE match against the internal module jar]]></notes>
+        <gav regex="true">^com\.nivroos:nivroos-core:.*$</gav>
+        <cve>CVE-2023-39022</cve>
+    </suppress>
+
+    <!-- Spring AI 1.1.2 系列 CVE（spring-ai-model / deepseek / rag / starter 等）：
+         版本矩阵宪法级锁定（spring-ai 1.1.2 ↔ spring-ai-alibaba 1.1.2.3 ↔ Boot 3.5.16
+         配套实测 2026-08-27）。升级或调整依赖图需配套重测，属软门禁事项，待评审决议。
+         核心阶段仅使用 ChatModel 协议转换路径，不触碰 RAG/文档解析能力。 -->
+    <suppress>
+        <notes><![CDATA[Spring AI 1.1.2 is locked by the version matrix (verified pairing with spring-ai-alibaba 1.1.2.3 / Boot 3.5.16); upgrading or reshaping the dependency graph needs re-verification (soft gate, pending review). Core stage uses only the ChatModel protocol-conversion path]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework\.ai/[^@]+@1\.1\.2$</packageUrl>
+        <cve>CVE-2026-22729</cve>
+        <cve>CVE-2026-22730</cve>
+        <cve>CVE-2026-22738</cve>
+        <cve>CVE-2026-22742</cve>
+        <cve>CVE-2026-22743</cve>
+        <cve>CVE-2026-22744</cve>
+        <cve>CVE-2026-40967</cve>
+        <cve>CVE-2026-40978</cve>
+        <cve>CVE-2026-40980</cve>
+        <cve>CVE-2026-41705</cve>
+        <cve>CVE-2026-41712</cve>
+        <cve>CVE-2026-41713</cve>
+        <cve>CVE-2026-47835</cve>
+    </suppress>
+
+    <!-- kotlin-stdlib 1.9.25：传递依赖（spring-ai 生态）。NivroOS 代码无 Kotlin 用法，
+         升级传递依赖版本需依赖图调整并配套重测，属软门禁事项，待评审决议。 -->
+    <suppress>
+        <notes><![CDATA[Transitive Kotlin stdlib (Spring AI ecosystem); NivroOS has no Kotlin code. Bumping the transitive version reshapes the dependency graph and needs review (soft gate)]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.jetbrains\.kotlin/kotlin-stdlib[^@]*@1\.9\.25$</packageUrl>
+        <cve>CVE-2026-53914</cve>
+    </suppress>
+
+    <!-- opennlp-tools 2.3.3：spring-ai-rag 的传递依赖。核心阶段不使用文档解析路径；
+         排除传递依赖属依赖图调整，待评审决议（软门禁）。 -->
+    <suppress>
+        <notes><![CDATA[Transitive dependency of spring-ai-rag (document parsing); the core stage never exercises the document-processing path. Excluding it reshapes the dependency graph and needs review (soft gate)]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.opennlp/opennlp-tools@2\.3\.3$</packageUrl>
+        <cve>CVE-2026-40682</cve>
+        <cve>CVE-2026-42027</cve>
+        <cve>CVE-2026-42440</cve>
+        <cve>CVE-2026-63317</cve>
+    </suppress>
+
+    <!-- log4j-api 2.24.3：Spring AI 传递依赖。NivroOS 日志全走 Logback + SLF4J，
+         不激活 log4j-api 的实现路径；传递依赖版本升级需依赖图调整，待评审决议（软门禁）。 -->
+    <suppress>
+        <notes><![CDATA[Transitive log4j-api (Spring AI); NivroOS logging is Logback+SLF4J only, the log4j-api implementation path is never activated. Bumping the transitive version needs review (soft gate)]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.logging\.log4j/log4j-(api|to-slf4j)@2\.24\.3$</packageUrl>
+        <cve>CVE-2026-34479</cve>
+    </suppress>
+
+    <!-- Jackson 3.0.3（tools.jackson.core）：Spring AI 生态的传递依赖。NivroOS 自身的
+         JSON 处理走 Jackson 2.x；3.x 仅服务于 Spring AI 内部。传递依赖版本升级需依赖图
+         调整并配套重测，属软门禁事项，待评审决议。 -->
+    <suppress>
+        <notes><![CDATA[Transitive Jackson 3.x (Spring AI ecosystem); NivroOS JSON handling uses Jackson 2.x, the 3.x line serves Spring AI internals only. Bumping the transitive version needs review (soft gate)]]></notes>
+        <packageUrl regex="true">^pkg:maven/tools\.jackson\.core/jackson-(core|databind)@3\.0\.[0-9]+$</packageUrl>
+        <cve>CVE-2026-29062</cve>
+        <cve>CVE-2026-54512</cve>
+        <cve>CVE-2026-54513</cve>
+    </suppress>
+
+    <!-- tomcat-embed-core 10.1.55：Spring Boot 3.5.16 BOM 锁定（版本矩阵宪法级）。
+         升级需升级 Boot 版本线并全面重测，属软门禁事项，待评审决议。
+         核心阶段部署假设内网（无认证机制，US-5 范围说明）。 -->
+    <suppress>
+        <notes><![CDATA[Tomcat 10.1.55 is locked by the Spring Boot 3.5.16 BOM (version matrix); upgrading requires a Boot line upgrade with full re-verification (soft gate, pending review). Core stage assumes intranet deployment]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.tomcat\.embed/tomcat-embed-(core|websocket)@10\.1\.55$</packageUrl>
+        <cve>CVE-2026-53434</cve>
+        <cve>CVE-2026-53404</cve>
+        <cve>CVE-2026-65182</cve>
+        <cve>CVE-2026-65183</cve>
+        <cve>CVE-2026-65905</cve>
+        <cve>CVE-2026-65927</cve>
+        <cve>CVE-2026-55276</cve>
+        <cve>CVE-2026-68525</cve>
+        <cve>CVE-2026-68569</cve>
+        <cve>CVE-2026-59083</cve>
+        <cve>CVE-2026-59084</cve>
+        <cve>CVE-2026-65637</cve>
+        <cve>CVE-2026-66422</cve>
+        <cve>CVE-2026-68763</cve>
+    </suppress>
+
+    <!-- DOMPurify 3.3.2：springdoc 2.8.17 内嵌 swagger-ui 的前端资源。XSS 面仅存在于
+         浏览器侧的 Swagger 页面；核心阶段部署假设内网，Swagger UI 属开发期工具。
+         springdoc 版本线锁定（2.8.17，陷阱表实测），升级属软门禁待评审。 -->
+    <suppress>
+        <notes><![CDATA[DOMPurify bundled inside swagger-ui (springdoc 2.8.17); the XSS surface is browser-side Swagger UI only. Core stage assumes intranet; springdoc line is locked (verified), upgrading needs review (soft gate)]]></notes>
+        <packageUrl regex="true">^pkg:javascript/DOMPurify@3\.3\.2$</packageUrl>
+        <cve>CVE-2026-65898</cve>
+    </suppress>
+
 </suppressions>

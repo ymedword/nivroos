@@ -43,6 +43,17 @@ spring:
       # name-to-ChatModel mapping. API keys are injected via ${ENV_VAR} only.
       enabled: false
 
+# 核心能力一（US-1）：供应商全局注册（契约见 specs/001-llm-provider/contracts/provider-config.md）。
+# api-key 只允许 ${ENV_VAR} 占位，明文会被 ProviderProperties 校验拒绝（宪法：不明文落盘）。
+nivroos:
+  providers:
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY}
+    kimi:
+      # 无官方 GA starter，经 OpenAI 兼容端点接入（实测 2026-08-27）
+      api-key: ${KIMI_API_KEY}
+      base-url: https://api.moonshot.cn/v1
+
 logging:
   level:
     root: INFO

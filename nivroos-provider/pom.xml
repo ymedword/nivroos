@@ -20,6 +20,12 @@
             <artifactId>nivroos-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- SpotBugs 局部抑制注解（provided，不进运行时） -->
+        <dependency>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <!-- Qwen (DashScope): Spring AI Alibaba protocol conversion only.
              Auto tool execution must stay disabled — the ReAct loop calls tools itself (constitution).
              The umbrella spring-ai-alibaba-starter is discontinued (last 1.0.0-M6.1), so provider
@@ -31,6 +37,20 @@
             <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
             <version>${spring-ai-alibaba.version}</version>
         </dependency>
+        <!-- DeepSeek: official Spring AI starter (verified on Maven Central 2026-08-27,
+             managed by spring-ai-bom). Auto tool execution stays disabled (constitution). -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-deepseek</artifactId>
+        </dependency>
+        <!-- OpenAI-compatible channel: Kimi (Moonshot) has no GA starter; it rides this
+             starter pointed at api.moonshot.cn/v1. Its eager auto-configuration must stay
+             excluded (application.yml) - ChatModel beans are built explicitly by
+             ProviderAutoConfiguration (constitution: explicit mapping). -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -38,4 +58,20 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- *IT.java（集成冒烟）纳入默认执行：环境守卫保证无 key 时自动跳过不红 -->
+                    <includes>
+                        <include>**/*Test.java</include>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
