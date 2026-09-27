@@ -85,6 +85,7 @@ nivroos serve
 | [docs/IndustryResearch.md](docs/IndustryResearch.md) | Industry research: Agent OS landscape, Java ecosystem gap |
 | [docs/AiProgrammingGuide.md](docs/AiProgrammingGuide.md) | AI programming guide: Spec-Kit implementation breakdown |
 | [CLAUDE.md](CLAUDE.md) | Claude Code project guide: constitution, module structure, common pitfalls |
+| [docs/DevOnboarding.md](docs/DevOnboarding.md) | Developer onboarding: bootstrap a new machine and continue development |
 
 ## Project Structure
 
