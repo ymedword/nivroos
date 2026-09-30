@@ -508,6 +508,8 @@ US-1 对接 LLM → US-2 ReAct 循环 →（US-3 Memory ∥ US-4 Plugin Tool 并
 | `Environment.getProperty(key, List.class)` 读 YAML 列表 | 返回 null（列表以索引键存储），白名单变空导致 Sandbox 全拒 | 用 `Binder.get(environment).bind("key", Bindable.listOf(String.class))` 读取（2026-08-31 Demo 实测） |
 | 用 `System.out` 打日志 | 输出无时间戳/级别/MDC，绕过 logback 与日志采集 | 统一 SLF4J（init-foundation skill 宪法条目） |
 | `schema.sql` 只有注释 | 启动报 `'script' must not be null or empty`（ScriptUtils 剥离注释后脚本为空） | 保留一条占位语句（如 `SELECT 1;`）直到首张表落地（已实测 2026-08-28） |
+| `AGENT.md` 不声明 `tools:` | 本轮工具池为空，模型把 tool call 当**文本**吐出（不执行、不报错，看起来像"答了但没生效"） | frontmatter 必须显式列出工具名——`ReActLoop` 按 `Profile.tools` 名从注册池解析，不声明 = 空列表，本轮无工具可选（2026-09-30 Demo 二实测） |
+| `recall_memory` 传多词 query | 归档区按整串 `contains` 匹配：`"SQLite 方案 评估"` 必不命中，单独给 `SQLite` 才命中 | query 只传**单个关键词**（契约语义：关键词匹配，不分词、不扩展）；若要支持多词属行为契约变更，先裁决再改（2026-09-30 Demo 二实测） |
 
 ---
 
@@ -531,9 +533,18 @@ US-1 对接 LLM → US-2 ReAct 循环 →（US-3 Memory ∥ US-4 Plugin Tool 并
 - 构建命令：`mvn clean package`（产物 `nivroos-boot/target/nivroos-boot-0.1.0.jar`，`java -jar` 启动）
 - **工程地基已初始化（2026-08-28）**：质量门禁（`mvn verify` = Spotless + Checkstyle + SpotBugs/findsecbugs + 测试 + JaCoCo 报告）、日志 dev/prod 双 profile（dev 彩色控制台+滚动文件 / prod JSON，MDC：sessionId/traceId）、虚拟线程开启（`spring.threads.virtual.enabled=true`）、SQLite WAL + `ddl-auto: none` + `schema.sql` 幂等建表（表结构变更一律改 schema.sql）、Spring AI eager 装配已排除、`nivroos-web` 规范层（ApiResponse/ErrorCode/GlobalExceptionHandler）、`nivroos-core` MetricsRegistry 接口预留、pre-commit（`git config core.hooksPath .githooks`）+ GitHub Actions 门禁工作流；初始化流程固化为项目 skill `/init-foundation`（`.claude/skills/init-foundation/`）
 - **依赖安全抑制已评审（2026-08-31，US-1 交付）**：`config/dependency-check-suppressions.xml` 8 组抑制经用户决议——核心阶段接受风险（内网假设+路径不执行）；**发布前必须执行依赖升级专项**（Spring AI/Boot 版本线配套重测）并逐组复核抑制
+- **Mem0 真服务联调延后至发布前（2026-09-30，US-3 交付决议）**：`memory.backend: mem0` 的代码与 mock HTTP 单测已交付全绿，配置校验三条分支（url 缺失 / api-key 缺失 / 占位符未解析）已在真机二进制上验证启动即大声报错；真实自托管 Mem0 服务的联调（以部署实例 `/openapi.json` 为准核对路径与字段，research §3 登记的三条语义差异同步复核）**与依赖升级专项同批列为发布前清单项**。markdown / sqlite 两档已实测互通（换后端只改一行配置）
 
 ## 环境
 
 - 当前会话模型：`deepseek-v4-flash`（`/model` 可查看/切换）
-- 平台：Windows 11（Git Bash shell），仓库 `d:\code\nivroos`
+- **双平台交替开发**——同一仓库在 Windows 与 macOS 两台机器上来回切换：
+
+| 项 | Windows 11 | macOS |
+| --- | --- | --- |
+| 仓库路径 | `d:\code\nivroos` | `/Users/my/program/ai_code/nivroos` |
+| Shell | Git Bash | zsh（非交互 shell 需先 `source ~/.zshrc` 才有 JAVA_HOME / PATH） |
+| JDK / Maven | 标准安装 | 非标准路径：JDK 21 在 `~/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home`，Maven 在 `~/.local/opt/apache-maven-3.9.16/bin/mvn`；**Homebrew 已损坏**（识别不了 macOS 版本，任何 `brew` 命令都崩）——禁用 brew 安装/升级工具链 |
+| 依赖仓库 | 直连 Maven Central | **Java TLS 连不上 Central**（同一 URL 用 curl 正常，中间网络只干扰 Java 握手），已配设备级 `~/.m2/settings.xml` 镜像到阿里云 `repository/public`（不入库）；构建报"下不到父 POM / 依赖"先确认该文件在，别误判为 pom.xml 写错 |
+
 - 文档、代码注释使用中文；关键注释（类级/方法级/复杂逻辑段）中英并列，中文在前、英文在后

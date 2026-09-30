@@ -76,6 +76,15 @@ http:
     - wttr.in
     - api.github.com
 
+# 核心能力三（US-3）：长期记忆后端选择（契约见 specs/003-agent-memory/contracts/memory-config.md）。
+# 换后端只改 backend 一行，MemoryService 及以上代码零改动。
+memory:
+  backend: markdown           # markdown | sqlite | mem0
+  archive-max-chars: 4000     # 归档区截断阈值（保留最新）；核心区不受此值影响
+  # mem0:                     # 仅 backend=mem0 时需要；credential 走 ${ENV_VAR} 占位或 nivroos-secrets.yml
+  #   url: http://localhost:8000
+  #   api-key: ${MEM0_API_KEY}
+
 logging:
   level:
     root: INFO

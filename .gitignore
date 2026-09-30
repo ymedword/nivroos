@@ -55,5 +55,10 @@ credentials.json
 *.db-wal
 data/
 
+# ===== NivroOS 运行时工作区（nivroos init 生成） =====
+# 含 USER.md / MEMORY.md / agents/ / mcp_servers.yaml（可能含凭证）与 logs/，
+# 属每台机器本地状态，绝不入库。详见 docs/DevOnboarding.md 第 4 节。
+.nivroos/
+
 # 本地密钥文件（FR-003 双通道：明文只允许放这里，绝不入库）
 nivroos-secrets.yml

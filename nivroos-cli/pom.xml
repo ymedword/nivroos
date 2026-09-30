@@ -41,6 +41,12 @@
             <artifactId>nivroos-tool</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- ChatCommand 需要构造 MemoryTools 并注入 MemoryService（US-3 新增） -->
+        <dependency>
+            <groupId>com.nivroos</groupId>
+            <artifactId>nivroos-memory</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli</artifactId>

@@ -3,6 +3,7 @@ package com.nivroos.cli;
 import com.nivroos.channel.cli.CliChannel;
 import com.nivroos.core.context.ContextLoader;
 import com.nivroos.core.loader.AgentLoader;
+import com.nivroos.core.memory.MemoryService;
 import com.nivroos.core.model.NivroTool;
 import com.nivroos.core.profile.Profile;
 import com.nivroos.core.profile.ProfileRegistry;
@@ -12,9 +13,9 @@ import com.nivroos.core.react.AgentService;
 import com.nivroos.core.react.PromptBuilder;
 import com.nivroos.core.react.ReActLoop;
 import com.nivroos.core.react.ToolExecutor;
-import com.nivroos.core.session.InMemorySessionManager;
 import com.nivroos.core.session.Session;
 import com.nivroos.core.session.SessionManager;
+import com.nivroos.memory.MemoryTools;
 import com.nivroos.tool.HttpTools;
 import com.nivroos.tool.sandbox.Sandbox;
 import com.nivroos.tool.sandbox.WhitelistSandbox;
@@ -53,14 +54,20 @@ public class ChatCommand implements Runnable {
   private final ProviderService providerService;
   private final ToolInvocationStore toolInvocationStore;
   private final Environment environment;
+  private final MemoryService memoryService;
+  private final SessionManager sessionManager;
 
   public ChatCommand(
       ProviderService providerService,
       ToolInvocationStore toolInvocationStore,
-      Environment environment) {
+      Environment environment,
+      MemoryService memoryService,
+      SessionManager sessionManager) {
     this.providerService = providerService;
     this.toolInvocationStore = toolInvocationStore;
     this.environment = environment;
+    this.memoryService = memoryService;
+    this.sessionManager = sessionManager;
   }
 
   /** Picocli 执行入口（boot 路径经 NivroOsApplication 分发调用）。 */
@@ -89,17 +96,22 @@ public class ChatCommand implements Runnable {
     registry.register(agentProfile);
 
     ContextLoader contextLoader = new ContextLoader(agentsRoot.resolve(profile), workspace);
-    PromptBuilder promptBuilder = new PromptBuilder(contextLoader);
+    PromptBuilder promptBuilder = new PromptBuilder(contextLoader, memoryService);
 
     Sandbox sandbox = new WhitelistSandbox(allowedDomains());
     HttpTools httpTools = new HttpTools(sandbox, HttpClient.newHttpClient());
-    Map<String, NivroTool> toolPool = Map.of("http_get", httpTools.httpGet());
+    MemoryTools memoryTools = new MemoryTools(memoryService);
+    Map<String, NivroTool> toolPool =
+        Map.of(
+            "http_get", httpTools.httpGet(),
+            "save_memory", memoryTools.saveMemory(),
+            "recall_memory", memoryTools.recallMemory());
     ToolExecutor toolExecutor = new ToolExecutor(toolPool, toolInvocationStore);
 
     ReActLoop loop = new ReActLoop(providerService, promptBuilder, toolExecutor, toolPool);
     AgentService agentService = new AgentService(loop, registry);
 
-    SessionManager sessionManager = new InMemorySessionManager();
+    // 会话管理器取自容器（与 MemoryService 共用同一实例），不再各自 new——否则门面读不到本轮历史
     Session session =
         sessionManager.getOrCreate("cli", System.getProperty("user.name", "local"), profile);
 

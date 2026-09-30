@@ -33,3 +33,13 @@ CREATE TABLE IF NOT EXISTS tool_invocations (
     duration_ms   BIGINT       NOT NULL,
     created_at    TIMESTAMP    NOT NULL
 );
+
+-- US-3（核心能力三）：长期记忆的 SQLite 档后端（memory.backend: sqlite；DDL 逐字见
+-- specs/003-agent-memory/data-model.md §4）。核心/归档语义与 Markdown 档一致，
+-- 分区落在 scope 列上——换后端只改 memory.backend 一行，门面及以上不动。
+CREATE TABLE IF NOT EXISTS memory_entries (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope      VARCHAR(16) NOT NULL,   -- CORE | ARCHIVAL
+    content    TEXT        NOT NULL,
+    created_at TIMESTAMP   NOT NULL
+);
