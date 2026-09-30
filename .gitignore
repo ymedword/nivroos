@@ -62,3 +62,8 @@ data/
 
 # 本地密钥文件（FR-003 双通道：明文只允许放这里，绝不入库）
 nivroos-secrets.yml
+
+# ===== 外部讲义与转换产物（第三方材料，不入库） =====
+# output/ 是从 PDF 转换的课程讲义（markdown/ + assets/ + zip），属外部参考资料，
+# 只在本地作对照（module-doc-gen skill 的参考文件"只借结构与讲法"），绝不入库。
+output/
