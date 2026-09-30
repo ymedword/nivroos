@@ -9,6 +9,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.nivroos.core.model.ChatRequest;
 import com.nivroos.core.model.ChatResponse;
 import com.nivroos.core.model.Message;
@@ -25,6 +29,8 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 
 /** 循环验收点：颗粒度文档 §4.2/§4.3（FR-001 / FR-004 / FR-009）。 */
 class ReActLoopTest {
@@ -127,6 +133,105 @@ class ReActLoopTest {
     inOrder
         .verify(executor)
         .execute(anyString(), argThat(c -> c.arguments().contains("wttr.in/b")));
+  }
+
+  // ------------------------------------------------ 工具池边界（前序改造点 7：resolveTools 签名不变，只补测试）
+
+  @Test
+  @DisplayName("工具池严格按 Profile.tools 精确匹配：声明几个就只给几个，未声明的内置工具不进池")
+  void run_profileDeclaresSubset_poolPassesExactlyTheDeclaredTools() {
+    ProviderService provider = mock(ProviderService.class);
+    when(provider.call(any(), any())).thenReturn(responseWithText("ok"));
+    PromptBuilder builder = promptBuilderStub();
+    Profile profile = profileWithDefaults();
+    profile.setTools(List.of("http_get"));
+    ProfileContext.set(profile);
+
+    ReActLoop loop =
+        new ReActLoop(
+            provider,
+            builder,
+            mock(ToolExecutor.class),
+            Map.of(
+                "http_get", namedTool("http_get"),
+                "shell", namedTool("shell"),
+                "read_file", namedTool("read_file")));
+
+    loop.run(session(), "查天气");
+
+    assertThat(capturedToolNames(builder)).containsExactly("http_get"); // 不多不少：能力边界即工具池边界
+  }
+
+  @Test
+  @DisplayName("声明了未注册的工具名 → 告警跳过（不静默）")
+  void run_profileDeclaresUnregisteredTool_warnsAndSkips() {
+    ProviderService provider = mock(ProviderService.class);
+    when(provider.call(any(), any())).thenReturn(responseWithText("ok"));
+    PromptBuilder builder = promptBuilderStub();
+    Profile profile = profileWithDefaults();
+    profile.setTools(List.of("http_get", "nope"));
+    ProfileContext.set(profile);
+    ReActLoop loop =
+        new ReActLoop(
+            provider, builder, mock(ToolExecutor.class), Map.of("http_get", namedTool("http_get")));
+
+    ListAppender<ILoggingEvent> appender = attachAppender();
+    try {
+      loop.run(session(), "查天气");
+    } finally {
+      detachAppender(appender);
+    }
+
+    assertThat(capturedToolNames(builder)).containsExactly("http_get");
+    assertThat(appender.list)
+        .anySatisfy(
+            event -> {
+              assertThat(event.getLevel()).isEqualTo(Level.WARN);
+              assertThat(event.getFormattedMessage()).contains("not registered").contains("nope");
+            });
+  }
+
+  @Test
+  @DisplayName("Profile 未声明任何工具 → 工具池为空（不兜底给全部）")
+  void run_profileDeclaresNoTools_poolIsEmpty() {
+    ProviderService provider = mock(ProviderService.class);
+    when(provider.call(any(), any())).thenReturn(responseWithText("ok"));
+    PromptBuilder builder = promptBuilderStub();
+    Profile profile = profileWithDefaults();
+    profile.setTools(List.of());
+    ProfileContext.set(profile);
+    ReActLoop loop =
+        new ReActLoop(
+            provider, builder, mock(ToolExecutor.class), Map.of("http_get", namedTool("http_get")));
+
+    loop.run(session(), "随便聊聊");
+
+    assertThat(capturedToolNames(builder)).isEmpty();
+  }
+
+  /** 从送入 PromptBuilder 的工具池里取回工具名（resolveTools 是私有的，只能从下游观察）。 */
+  @SuppressWarnings("unchecked")
+  private static List<String> capturedToolNames(PromptBuilder builder) {
+    ArgumentCaptor<List<NivroTool>> captor = ArgumentCaptor.forClass(List.class);
+    verify(builder).build(any(), captor.capture());
+    return captor.getValue().stream().map(NivroTool::getName).toList();
+  }
+
+  private static NivroTool namedTool(String name) {
+    NivroTool tool = mock(NivroTool.class);
+    when(tool.getName()).thenReturn(name);
+    return tool;
+  }
+
+  private static ListAppender<ILoggingEvent> attachAppender() {
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    ((Logger) LoggerFactory.getLogger(ReActLoop.class)).addAppender(appender);
+    return appender;
+  }
+
+  private static void detachAppender(ListAppender<ILoggingEvent> appender) {
+    ((Logger) LoggerFactory.getLogger(ReActLoop.class)).detachAppender(appender);
   }
 
   private static PromptBuilder promptBuilderStub() {

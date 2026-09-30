@@ -10,11 +10,28 @@
      评审记录：2026-08-31 用户评审本文件全部 8 组抑制（US-1 交付），决议：
      核心阶段接受风险（内网部署假设 + 抑制路径不执行）；【发布前必须执行】
      依赖升级专项（Spring AI / Boot 版本线配套重测），完成后逐组复核并移除仍适用的抑制。
+
+     评审记录（续）：2026-10-01 用户评审（US-4 交付），NVD 2026-09-29 数据刷新后
+     既有依赖新暴露 16 条 ≥7.0 的 CVE（spring-core 12 / spring-ai 3 / opennlp-tools 1），
+     门禁转红 → 决议沿用 2026-08-31 口径追加抑制。随后做抑制有效性复核时查明：历史
+     做法实为"只抑制当轮卡门禁的（≥7.0）"，另有 31 条 <7.0 的 CVE 从未被抑制
+     （tomcat 5 / DOMPurify 10 / Jackson 3.x 5 / log4j-api 2 / jackson-databind 2.x 1 /
+     commons-lang3 1 / spring-data-jpa 1 / kotlin-stdlib 1）→ 用户二次裁决"真全量收录"，
+     一并补齐（现共 12 组）。收录口径自此统一为：该依赖在最近一次扫描中报告的全部
+     CVE（含 <7.0），新增组不再只挑卡门禁的。US-4 未引入任何新第三方坐标，红是数据侧刷新。
+     注：<7.0 的条目被抑制后不再出现在报告的未抑制清单中，发布前依赖升级专项复核时
+     以本文件的 CVE 列表为准（见下方各组 cve 元素），不要只看报告。
+     复核方法（2026-10-01 实测）：报告 HTML 里未抑制条目带 suppress 按钮，按钮的
+     data-type-to-suppress 有三种取值 —— cpe（每个依赖都有的"可抑制该 CPE 标识"，
+     与漏洞无关，忽略）、cve（NVD 收录，用 <cve> 匹配）、vulnerabilityName（仅
+     RetireJS 有记录，NVD 无条目，必须用 <vulnerabilityName> 匹配，用 <cve> 匹配不上）。
+     只按 cve 类型对账会漏掉第三类。
 -->
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
 
     <!-- CVE-2023-39022：CPE 误报。该 CVE 对应 JavaScript 包（import-in-the-middle），
-         dependency-check 按 CPE 启发式误匹配到本项目内部模块（2026-08-27 实测）。 -->
+         dependency-check 按 CPE 启发式误匹配到本项目内部模块（2026-08-27 实测）。
+         2026-10-01 复核：本次扫描零命中（NVD 数据已不再给出该误配），保留作回滚/重匹配保险。 -->
     <suppress>
         <notes><![CDATA[CPE false positive: CVE-2023-39022 affects a JavaScript package (import-in-the-middle); heuristic CPE match against the internal module jar]]></notes>
         <gav regex="true">^com\.nivroos:nivroos-core:.*$</gav>
@@ -26,7 +43,7 @@
          配套实测 2026-08-27）。升级或调整依赖图需配套重测，属软门禁事项，待评审决议。
          核心阶段仅使用 ChatModel 协议转换路径，不触碰 RAG/文档解析能力。 -->
     <suppress>
-        <notes><![CDATA[Spring AI 1.1.2 is locked by the version matrix (verified pairing with spring-ai-alibaba 1.1.2.3 / Boot 3.5.16); upgrading or reshaping the dependency graph needs re-verification (soft gate, pending review). Core stage uses only the ChatModel protocol-conversion path]]></notes>
+        <notes><![CDATA[Spring AI 1.1.2 is locked by the version matrix (verified pairing with spring-ai-alibaba 1.1.2.3 / Boot 3.5.16); upgrading or reshaping the dependency graph needs re-verification (soft gate, pending review). Core stage uses only the ChatModel protocol-conversion path. CVE list refreshed 2026-10-01 (NVD data of 2026-09-29): +7 CVEs]]></notes>
         <packageUrl regex="true">^pkg:maven/org\.springframework\.ai/[^@]+@1\.1\.2$</packageUrl>
         <cve>CVE-2026-22729</cve>
         <cve>CVE-2026-22730</cve>
@@ -34,59 +51,116 @@
         <cve>CVE-2026-22742</cve>
         <cve>CVE-2026-22743</cve>
         <cve>CVE-2026-22744</cve>
+        <cve>CVE-2026-40966</cve>
         <cve>CVE-2026-40967</cve>
         <cve>CVE-2026-40978</cve>
+        <cve>CVE-2026-40979</cve>
         <cve>CVE-2026-40980</cve>
         <cve>CVE-2026-41705</cve>
         <cve>CVE-2026-41712</cve>
         <cve>CVE-2026-41713</cve>
+        <cve>CVE-2026-41863</cve>
         <cve>CVE-2026-47835</cve>
+        <cve>CVE-2026-47851</cve>
+        <cve>CVE-2026-47852</cve>
+        <cve>CVE-2026-59294</cve>
+        <cve>CVE-2026-59318</cve>
+    </suppress>
+
+    <!-- Spring Framework 6.2.19 全家族（spring-core / spring-aop / spring-beans /
+         spring-context / spring-web ...）：Spring Boot 3.5.16 BOM 锁定的版本线
+         （版本矩阵宪法级）。升级需升级 Boot 版本线并全面重测，属软门禁事项，待评审决议。
+         作用域取 spring-* 全家族而非单个 jar：CPE `spring_framework:6.2.19` 会挂到
+         analyzer 选中的任意一个同版本 jar 上（2026-10-01 实测，同一份数据先报
+         spring-core、再报 spring-aop），只抑制单 jar 会漏。
+         CVE 清单来自 2026-10-01 扫描（NVD 2026-09-29 更新），17 条中 12 条 ≥7.0
+         （含 4 条 CRITICAL 9.8）。多数命中路径（WebFlux / RSocket / XsltView /
+         FreeMarker / UrlFileNameViewController）NivroOS 从不启用；核心阶段为同步
+         Spring MVC 单体、内网部署假设（宪法原则七 / US-5 范围说明）。
+         评审：2026-10-01 用户通过，沿用 2026-08-31 决议。 -->
+    <suppress>
+        <notes><![CDATA[Spring Framework 6.2.19 (all spring-* artifacts) is locked by the Spring Boot 3.5.16 BOM (version matrix); upgrading requires a Boot line upgrade with full re-verification (soft gate, pending review). Scope is the whole spring-* family because the CPE spring_framework:6.2.19 attaches to whichever same-version jar the analyzer picks. Core stage is a synchronous Spring MVC monolith on an assumed intranet; the flagged paths (WebFlux / RSocket / XsltView / FreeMarker / UrlFileNameViewController) are never enabled]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework/spring-[^@]+@6\.2\.19$</packageUrl>
+        <cve>CVE-2026-47883</cve>
+        <cve>CVE-2026-47884</cve>
+        <cve>CVE-2026-47885</cve>
+        <cve>CVE-2026-47886</cve>
+        <cve>CVE-2026-47887</cve>
+        <cve>CVE-2026-47888</cve>
+        <cve>CVE-2026-47889</cve>
+        <cve>CVE-2026-47890</cve>
+        <cve>CVE-2026-47891</cve>
+        <cve>CVE-2026-47892</cve>
+        <cve>CVE-2026-47893</cve>
+        <cve>CVE-2026-59280</cve>
+        <cve>CVE-2026-59281</cve>
+        <cve>CVE-2026-59282</cve>
+        <cve>CVE-2026-59283</cve>
+        <cve>CVE-2026-59313</cve>
+        <cve>CVE-2026-59314</cve>
     </suppress>
 
     <!-- kotlin-stdlib 1.9.25：传递依赖（spring-ai 生态）。NivroOS 代码无 Kotlin 用法，
          升级传递依赖版本需依赖图调整并配套重测，属软门禁事项，待评审决议。 -->
     <suppress>
-        <notes><![CDATA[Transitive Kotlin stdlib (Spring AI ecosystem); NivroOS has no Kotlin code. Bumping the transitive version reshapes the dependency graph and needs review (soft gate)]]></notes>
+        <notes><![CDATA[Transitive Kotlin stdlib (Spring AI ecosystem); NivroOS has no Kotlin code. Bumping the transitive version reshapes the dependency graph and needs review (soft gate). CVE-2020-29582 added 2026-10-01: the NVD text scopes it to Kotlin before 1.4.21 while this tree carries 1.9.25, so it falls outside the affected range - a CPE range mismatch kept suppressed as noise]]></notes>
         <packageUrl regex="true">^pkg:maven/org\.jetbrains\.kotlin/kotlin-stdlib[^@]*@1\.9\.25$</packageUrl>
         <cve>CVE-2026-53914</cve>
+        <cve>CVE-2020-29582</cve>
     </suppress>
 
     <!-- opennlp-tools 2.3.3：spring-ai-rag 的传递依赖。核心阶段不使用文档解析路径；
          排除传递依赖属依赖图调整，待评审决议（软门禁）。 -->
     <suppress>
-        <notes><![CDATA[Transitive dependency of spring-ai-rag (document parsing); the core stage never exercises the document-processing path. Excluding it reshapes the dependency graph and needs review (soft gate)]]></notes>
+        <notes><![CDATA[Transitive dependency of spring-ai-rag (document parsing); the core stage never exercises the document-processing path. Excluding it reshapes the dependency graph and needs review (soft gate). CVE list refreshed 2026-10-01 (NVD data of 2026-09-29): +1 CVE]]></notes>
         <packageUrl regex="true">^pkg:maven/org\.apache\.opennlp/opennlp-tools@2\.3\.3$</packageUrl>
         <cve>CVE-2026-40682</cve>
         <cve>CVE-2026-42027</cve>
         <cve>CVE-2026-42440</cve>
         <cve>CVE-2026-63317</cve>
+        <cve>CVE-2026-82617</cve>
     </suppress>
 
     <!-- log4j-api 2.24.3：Spring AI 传递依赖。NivroOS 日志全走 Logback + SLF4J，
          不激活 log4j-api 的实现路径；传递依赖版本升级需依赖图调整，待评审决议（软门禁）。 -->
     <suppress>
-        <notes><![CDATA[Transitive log4j-api (Spring AI); NivroOS logging is Logback+SLF4J only, the log4j-api implementation path is never activated. Bumping the transitive version needs review (soft gate)]]></notes>
+        <notes><![CDATA[Transitive log4j-api (Spring AI); NivroOS logging is Logback+SLF4J only, the log4j-api implementation path is never activated. Bumping the transitive version needs review (soft gate). +2 CVEs 2026-10-01: CVE-2026-34477 is a hostname-verification gap on log4j's own TLS network appenders and CVE-2026-49844 is MapMessage JSON encoding - no log4j appender or layout is wired up here, so neither path executes]]></notes>
         <packageUrl regex="true">^pkg:maven/org\.apache\.logging\.log4j/log4j-(api|to-slf4j)@2\.24\.3$</packageUrl>
         <cve>CVE-2026-34479</cve>
+        <cve>CVE-2026-34477</cve>
+        <cve>CVE-2026-49844</cve>
     </suppress>
 
-    <!-- Jackson 3.0.3（tools.jackson.core）：Spring AI 生态的传递依赖。NivroOS 自身的
+    <!-- Jackson 3.x（tools.jackson.core）：Spring AI 生态的传递依赖。NivroOS 自身的
          JSON 处理走 Jackson 2.x；3.x 仅服务于 Spring AI 内部。传递依赖版本升级需依赖图
-         调整并配套重测，属软门禁事项，待评审决议。 -->
+         调整并配套重测，属软门禁事项，待评审决议。
+         2026-10-01 实测：依赖树里 3.0.1（nivroos-boot）与 3.0.3（nivroos-tool /
+         nivroos-cli）并存，跨模块未收敛 —— 正则用 3\.0\.[0-9]+ 一并覆盖，收敛属依赖图
+         调整，同样待评审（软门禁）。 -->
     <suppress>
-        <notes><![CDATA[Transitive Jackson 3.x (Spring AI ecosystem); NivroOS JSON handling uses Jackson 2.x, the 3.x line serves Spring AI internals only. Bumping the transitive version needs review (soft gate)]]></notes>
+        <notes><![CDATA[Transitive Jackson 3.x (Spring AI ecosystem); NivroOS JSON handling uses Jackson 2.x, the 3.x line serves Spring AI internals only. Bumping the transitive version needs review (soft gate). The tree carries both 3.0.1 and 3.0.3 across modules (not converged); the regex covers both. +5 CVEs 2026-10-01 (CVE-2026-54514..54518)]]></notes>
         <packageUrl regex="true">^pkg:maven/tools\.jackson\.core/jackson-(core|databind)@3\.0\.[0-9]+$</packageUrl>
         <cve>CVE-2026-29062</cve>
         <cve>CVE-2026-54512</cve>
         <cve>CVE-2026-54513</cve>
+        <cve>CVE-2026-54514</cve>
+        <cve>CVE-2026-54515</cve>
+        <cve>CVE-2026-54516</cve>
+        <cve>CVE-2026-54517</cve>
+        <cve>CVE-2026-54518</cve>
     </suppress>
 
     <!-- tomcat-embed-core 10.1.55：Spring Boot 3.5.16 BOM 锁定（版本矩阵宪法级）。
          升级需升级 Boot 版本线并全面重测，属软门禁事项，待评审决议。
          核心阶段部署假设内网（无认证机制，US-5 范围说明）。 -->
     <suppress>
-        <notes><![CDATA[Tomcat 10.1.55 is locked by the Spring Boot 3.5.16 BOM (version matrix); upgrading requires a Boot line upgrade with full re-verification (soft gate, pending review). Core stage assumes intranet deployment]]></notes>
+        <notes><![CDATA[Tomcat 10.1.55 is locked by the Spring Boot 3.5.16 BOM (version matrix); upgrading requires a Boot line upgrade with full re-verification (soft gate, pending review). Core stage assumes intranet deployment. +5 CVEs 2026-10-01: two are in Tomcat's bundled sample webapps (CVE-2026-50229 number-guess example XSS, CVE-2026-66299 WebSocket chat example) which tomcat-embed-core does not ship, one is in the cluster EncryptionInterceptor (CVE-2026-55955, clustering is not configured), one targets the default servlet's security constraints (CVE-2026-55956; requests are served by the Spring MVC dispatcher servlet) and one is WebSocket session expiry (CVE-2026-73180; WebSocket is out of core-stage scope)]]></notes>
         <packageUrl regex="true">^pkg:maven/org\.apache\.tomcat\.embed/tomcat-embed-(core|websocket)@10\.1\.55$</packageUrl>
+        <cve>CVE-2026-73180</cve>
+        <cve>CVE-2026-55955</cve>
+        <cve>CVE-2026-55956</cve>
+        <cve>CVE-2026-50229</cve>
+        <cve>CVE-2026-66299</cve>
         <cve>CVE-2026-53434</cve>
         <cve>CVE-2026-53404</cve>
         <cve>CVE-2026-65182</cve>
@@ -107,9 +181,58 @@
          浏览器侧的 Swagger 页面；核心阶段部署假设内网，Swagger UI 属开发期工具。
          springdoc 版本线锁定（2.8.17，陷阱表实测），升级属软门禁待评审。 -->
     <suppress>
-        <notes><![CDATA[DOMPurify bundled inside swagger-ui (springdoc 2.8.17); the XSS surface is browser-side Swagger UI only. Core stage assumes intranet; springdoc line is locked (verified), upgrading needs review (soft gate)]]></notes>
+        <notes><![CDATA[DOMPurify bundled inside swagger-ui (springdoc 2.8.17); the XSS surface is browser-side Swagger UI only. Core stage assumes intranet; springdoc line is locked (verified), upgrading needs review (soft gate). +13 CVEs 2026-10-01 (CVE-2026-41240 / 49458 / 49459 / 49978 / 65899..65903 / 66010, all MEDIUM 5.1-6.3, plus CVE-2026-41238 / 41239 / 75838 which only RetireJS records - NVD has no entry, hence vulnerabilityName rather than cve) - every one is a DOMPurify sanitizer bypass reachable only from a page that renders attacker HTML through it; nothing in NivroOS calls DOMPurify, it ships as a static asset of the Swagger UI page]]></notes>
         <packageUrl regex="true">^pkg:javascript/DOMPurify@3\.3\.2$</packageUrl>
+        <cve>CVE-2026-41240</cve>
+        <cve>CVE-2026-49458</cve>
+        <cve>CVE-2026-49459</cve>
+        <cve>CVE-2026-49978</cve>
         <cve>CVE-2026-65898</cve>
+        <cve>CVE-2026-65899</cve>
+        <cve>CVE-2026-65900</cve>
+        <cve>CVE-2026-65901</cve>
+        <cve>CVE-2026-65902</cve>
+        <cve>CVE-2026-65903</cve>
+        <cve>CVE-2026-66010</cve>
+        <!-- 下面 3 条只有 RetireJS 有记录、NVD 未收录，DC 归类为 vulnerabilityName
+             而非 cve（报告里按钮类型是 vulnerabilityName），故用 <vulnerabilityName> 匹配 -->
+        <vulnerabilityName>CVE-2026-41238</vulnerabilityName>
+        <vulnerabilityName>CVE-2026-41239</vulnerabilityName>
+        <vulnerabilityName>CVE-2026-75838</vulnerabilityName>
+    </suppress>
+
+    <!-- com.fasterxml.jackson.core:jackson-databind 2.21.4：NivroOS 自身的 JSON 栈
+         （nivroos-core/pom.xml 直接声明），版本由 Spring Boot 3.5.16 BOM 锁定。
+         CVE-2026-54515（MEDIUM 5.3）触发需要"逐属性 @JsonIgnoreProperties 排除"与
+         "@JsonFormat(ACCEPT_CASE_INSENSITIVE_PROPERTIES)"同时出现 —— 两个注解在
+         本仓库全库 grep 零引用（2026-10-01 实测），缺陷路径不可达。版本线升级需随
+         Boot 升级配套重测，属软门禁事项，待评审决议。 -->
+    <suppress>
+        <notes><![CDATA[Jackson 2.x is NivroOS's own JSON stack (declared in nivroos-core/pom.xml), version pinned by the Spring Boot 3.5.16 BOM. CVE-2026-54515 (MEDIUM 5.3) needs a per-property @JsonIgnoreProperties exclusion combined with @JsonFormat(ACCEPT_CASE_INSENSITIVE_PROPERTIES); neither annotation is referenced anywhere in this repository (grep 2026-10-01), so the flawed path is unreachable. Upgrading the BOM-managed version requires a Boot line upgrade with full re-verification (soft gate, pending review)]]></notes>
+        <packageUrl regex="true">^pkg:maven/com\.fasterxml\.jackson\.core/jackson-databind@2\.21\.4$</packageUrl>
+        <cve>CVE-2026-54515</cve>
+    </suppress>
+
+    <!-- org.apache.commons:commons-lang3 3.17.0：传递依赖（springdoc / swagger-core
+         等 Spring 生态路径）。CVE-2025-48924（MEDIUM 5.3）是 ClassUtils.getClass()
+         在超长输入上抛 StackOverflowError —— ClassUtils 在本仓库全库 grep 零引用
+         （2026-10-01 实测）。传递依赖版本升级需依赖图调整，属软门禁事项，待评审决议。 -->
+    <suppress>
+        <notes><![CDATA[Transitive commons-lang3 (springdoc / swagger-core and other Spring-ecosystem paths). CVE-2025-48924 (MEDIUM 5.3) is a StackOverflowError from ClassUtils.getClass() on very long inputs; ClassUtils is not referenced anywhere in this repository (grep 2026-10-01). Bumping the transitive version reshapes the dependency graph and needs review (soft gate)]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.commons/commons-lang3@3\.17\.0$</packageUrl>
+        <cve>CVE-2025-48924</cve>
+    </suppress>
+
+    <!-- org.springframework.data:spring-data-jpa 3.5.13：经 nivroos-storage 的
+         spring-boot-starter-data-jpa 引入（Spring Boot 3.5.16 BOM 锁定），是 NivroOS
+         的持久层。CVE-2026-47834（MEDIUM 6.5）：Sort 校验可被绕过，前提是排序表达式
+         来自不可信输入 —— 核心阶段代码无任何 Sort / Pageable 用法（2026-10-01 全库
+         grep 实测）。⚠ 接入 REST 层（US-5）开始接受查询参数时，必须重新评估本条适用性。
+         版本线升级需随 Boot 升级配套重测，属软门禁事项，待评审决议。 -->
+    <suppress>
+        <notes><![CDATA[Spring Data JPA is NivroOS's persistence layer, pulled in by the spring-boot-starter-data-jpa declared in nivroos-storage and pinned by the Spring Boot 3.5.16 BOM. CVE-2026-47834 (MEDIUM 6.5) is a Sort-validation bypass that requires the sort expression to come from untrusted input; the core stage has no Sort or Pageable usage at all (repository-wide grep 2026-10-01). RE-ASSESS when the REST layer (US-5) starts accepting query parameters. Upgrading requires a Boot line upgrade with full re-verification (soft gate, pending review)]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework\.data/spring-data-jpa@3\.5\.13$</packageUrl>
+        <cve>CVE-2026-47834</cve>
     </suppress>
 
 </suppressions>

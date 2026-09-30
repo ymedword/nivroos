@@ -31,10 +31,32 @@
             <groupId>io.modelcontextprotocol.sdk</groupId>
             <artifactId>mcp</artifactId>
         </dependency>
+        <!-- @Configuration / Environment / Binder：ToolConfiguration 读三组白名单与超时。
+             非 starter、不带任何自动装配，autoconfigure.exclude 清单不变 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
+        </dependency>
+
+        <!-- SpotBugs 抑制注解（provided，不出现在运行时）——装配类持有 Environment 的理由抑制 -->
+        <dependency>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- MemoryTools 经容器扫描进 ToolRegistry 的验收（FR-002：三类来源同一条注册路径）。
+             仅测试范围——本模块主代码对 memory 无任何编译期依赖（quickstart 不变量 ①） -->
+        <dependency>
+            <groupId>com.nivroos</groupId>
+            <artifactId>nivroos-memory</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

@@ -20,6 +20,13 @@
             <artifactId>nivroos-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Spring AI @Tool 注解：MemoryTools 的 schema 生成（US-4 起标注方式，
+             仅用注解、不引任何执行链路；同一坐标已在 nivroos-tool 声明，
+             版本由 Spring AI Alibaba BOM 管理，非新增第三方坐标） -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-model</artifactId>
+        </dependency>
         <!-- SqliteMemoryStore 的 JdbcTemplate（版本由 Boot BOM 管理，非新增第三方坐标） -->
         <dependency>
             <groupId>org.springframework</groupId>

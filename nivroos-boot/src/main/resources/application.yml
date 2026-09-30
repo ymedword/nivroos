@@ -70,9 +70,18 @@ nivroos:
       api-key: ${KIMI_API_KEY}
       base-url: https://api.moonshot.cn
 
-# 沙箱 HTTP 域名白名单（宪法原则六；通配符 *.example.com 匹配裸域名与子域名）
+# 沙箱三档白名单（宪法原则六；键名是已定字面量，见 docs/us/us4-tool.md §3.3）。
+# 配置边界（部署说明必须写明）：三组白名单留空 = 全部拒绝，不是"不校验"。
+file:
+  allowed_paths:            # 文件工具路径白名单（读 / 写 / 列）
+    - .nivroos/agents
+shell:
+  allowed_commands:         # Shell 命令首 token 白名单（只比对首个 token，大小写敏感）
+    - python
+    - git
+  # timeout-seconds: 30     # 见待决事项（值技术方案未规定，缺省 30）
 http:
-  allowed_domains:
+  allowed_domains:          # 沿用 US-2 交付的键（通配符 *.example.com 匹配裸域名与子域名；notify webhook 共享同一份）
     - wttr.in
     - api.github.com
 

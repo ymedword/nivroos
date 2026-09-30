@@ -3,6 +3,7 @@ package com.nivroos.core.profile;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 运行时宿主配置（技术方案 §8.2）。
@@ -29,6 +30,24 @@ public class Profile {
 
   /** 运行设置（US-2 起，带默认值）。 */
   private Settings settings = new Settings();
+
+  /** Agent 描述（US-4 新增，AGENT.md 的 description）。 */
+  private String description;
+
+  /** 身份（US-4 新增；只派生登记，不额外注入 system prompt）。 */
+  private Identity identity;
+
+  /** 引用的 MCP server 名（US-4 新增，frontmatter 键 mcp_servers）。 */
+  private List<String> mcpServers = new ArrayList<>();
+
+  /** 引导文件列表（US-4 新增，frontmatter 键 bootstrap）。 */
+  private List<String> bootstrap = new ArrayList<>();
+
+  /** 接入渠道声明（US-4 新增）。 */
+  private List<Channel> channels = new ArrayList<>();
+
+  /** 定时任务声明（US-4 新增；消费归 US-5 的 AgentScheduler）。 */
+  private List<Schedule> schedules = new ArrayList<>();
 
   public String getName() {
     return name;
@@ -86,6 +105,70 @@ public class Profile {
   public void setSettings(Settings settings) {
     this.settings = settings;
   }
+
+  public String getDescription() {
+    return description;
+  }
+
+  public void setDescription(String description) {
+    this.description = description;
+  }
+
+  public Identity getIdentity() {
+    return identity;
+  }
+
+  public void setIdentity(Identity identity) {
+    this.identity = identity;
+  }
+
+  public List<String> getMcpServers() {
+    // 不可变视图：调用方（ProfileConfiguration 校验）只读
+    return List.copyOf(mcpServers);
+  }
+
+  public void setMcpServers(List<String> mcpServers) {
+    this.mcpServers = mcpServers == null ? new ArrayList<>() : new ArrayList<>(mcpServers);
+  }
+
+  public List<String> getBootstrap() {
+    // 不可变视图：调用方（ContextLoader）只读
+    return List.copyOf(bootstrap);
+  }
+
+  public void setBootstrap(List<String> bootstrap) {
+    this.bootstrap = bootstrap == null ? new ArrayList<>() : new ArrayList<>(bootstrap);
+  }
+
+  public List<Channel> getChannels() {
+    return List.copyOf(channels);
+  }
+
+  public void setChannels(List<Channel> channels) {
+    this.channels = channels == null ? new ArrayList<>() : new ArrayList<>(channels);
+  }
+
+  public List<Schedule> getSchedules() {
+    return List.copyOf(schedules);
+  }
+
+  public void setSchedules(List<Schedule> schedules) {
+    this.schedules = schedules == null ? new ArrayList<>() : new ArrayList<>(schedules);
+  }
+
+  /** 身份：AGENT.md 的 identity.agent_name / identity.prompt（技术方案 §8.2）。 */
+  public record Identity(String agentName, String prompt) {}
+
+  /** 渠道声明：name + 渠道自定义配置（config 为不可变副本）。 */
+  public record Channel(String name, Map<String, Object> config) {
+
+    public Channel {
+      config = config == null ? Map.of() : Map.copyOf(config);
+    }
+  }
+
+  /** 定时任务声明：cron 表达式 + 触发消息（消费归 US-5 AgentScheduler）。 */
+  public record Schedule(String cron, String message) {}
 
   /** 运行设置（技术方案 §4.3 默认值）。 */
   public static class Settings {

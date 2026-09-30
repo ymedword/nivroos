@@ -6,6 +6,7 @@ import com.nivroos.core.model.ChatRequest;
 import com.nivroos.core.model.Message;
 import com.nivroos.core.model.NivroTool;
 import com.nivroos.core.session.Session;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +24,11 @@ public class PromptBuilder {
   private final ContextLoader contextLoader;
   private final MemoryService memoryService;
 
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP2",
+      justification =
+          "ContextLoader 是长寿命协作 Bean（只持白名单列表与路径等不可变派生值），字段私有且无访问器外泄；"
+              + "The loader is a long-lived collaborator holding only immutable derived values; the field is private and no accessor returns it")
   public PromptBuilder(ContextLoader contextLoader, MemoryService memoryService) {
     this.contextLoader = contextLoader;
     this.memoryService = memoryService;

@@ -78,6 +78,18 @@ public class MemoryConfiguration {
     return new MemoryService(sessionManager, store);
   }
 
+  /**
+   * 记忆工具：改为容器 Bean，供 ToolRegistry 扫描注册（US-4 前序改造点 2）。
+   *
+   * <p>Registering it as a bean is what lets the registry's container scan pick the two memory
+   * tools up without the tool module depending on this one; before US-4 every entry point built the
+   * tool objects by hand, which meant memory tools were invisible to the registry.
+   */
+  @Bean
+  public MemoryTools memoryTools(MemoryService memoryService) {
+    return new MemoryTools(memoryService);
+  }
+
   /** 会话管理器：US-2 的通道各自 new 一个，多入口会读到不同历史——统一出 Bean 消除该分叉。 */
   @Bean
   public SessionManager sessionManager() {

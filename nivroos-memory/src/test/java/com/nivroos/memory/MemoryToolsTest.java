@@ -3,8 +3,6 @@ package com.nivroos.memory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -16,23 +14,31 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nivroos.core.memory.LongTermMemoryStore;
 import com.nivroos.core.memory.MemoryScope;
 import com.nivroos.core.memory.MemoryService;
-import com.nivroos.core.model.NivroTool;
-import com.nivroos.core.model.ToolCallRequest;
 import com.nivroos.core.model.ToolResult;
-import com.nivroos.core.provider.ToolInvocationStore;
-import com.nivroos.core.react.ToolExecutor;
 import com.nivroos.core.session.SessionManager;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 
-/** MemoryTools 验收点：颗粒度文档 §4.2 + 契约 contracts/memory-tools.md（两个工具段）。 */
+/**
+ * MemoryTools 验收点：颗粒度文档 §4.2 + 契约 contracts/memory-tools.md（两个工具段）。
+ *
+ * <p>US-4 起工具是 {@code @Tool} 方法：行为用直接调用断言，工具名/参数名/schema 用 Spring AI 生成
+ * 的回调元数据断言（与生产注册路径同源）。JSON→ToolResult 的桥接与审计落库由 nivroos-tool 侧 （AnnotatedToolAdapter + 既有
+ * ToolExecutor 机制）覆盖。
+ */
 class MemoryToolsTest {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -62,10 +68,8 @@ class MemoryToolsTest {
   @DisplayName("content + scope: CORE → 追加到核心区")
   void saveMemory_scopeCore_writesToCore() {
     LongTermMemoryStore store = store();
-    NivroTool tool = toolsWith(store).saveMemory();
 
-    ToolResult result =
-        tool.execute(args("{\"content\":\"用户项目用 Spring Boot\",\"scope\":\"CORE\"}"));
+    ToolResult result = toolsWith(store).saveMemory("用户项目用 Spring Boot", "CORE");
 
     assertThat(result.success()).isTrue();
     verify(store).append("用户项目用 Spring Boot", MemoryScope.CORE);
@@ -75,9 +79,8 @@ class MemoryToolsTest {
   @DisplayName("content + scope: ARCHIVAL → 追加到归档区")
   void saveMemory_scopeArchival_writesToArchival() {
     LongTermMemoryStore store = store();
-    NivroTool tool = toolsWith(store).saveMemory();
 
-    ToolResult result = tool.execute(args("{\"content\":\"上次讨论过 SQLite\",\"scope\":\"ARCHIVAL\"}"));
+    ToolResult result = toolsWith(store).saveMemory("上次讨论过 SQLite", "ARCHIVAL");
 
     assertThat(result.success()).isTrue();
     verify(store).append("上次讨论过 SQLite", MemoryScope.ARCHIVAL);
@@ -87,9 +90,8 @@ class MemoryToolsTest {
   @DisplayName("省略 scope → 默认归档区（FR-006）")
   void saveMemory_defaultsToArchivalWhenScopeOmitted() {
     LongTermMemoryStore store = store();
-    NivroTool tool = toolsWith(store).saveMemory();
 
-    ToolResult result = tool.execute(args("{\"content\":\"随手记一条\"}"));
+    ToolResult result = toolsWith(store).saveMemory("随手记一条", null);
 
     assertThat(result.success()).isTrue();
     verify(store).append("随手记一条", MemoryScope.ARCHIVAL);
@@ -101,9 +103,8 @@ class MemoryToolsTest {
   @DisplayName("content 缺失 → 失败结果，不写存储")
   void saveMemory_missingContent_failsWithoutWriting() {
     LongTermMemoryStore store = store();
-    NivroTool tool = toolsWith(store).saveMemory();
 
-    ToolResult result = tool.execute(args("{\"scope\":\"CORE\"}"));
+    ToolResult result = toolsWith(store).saveMemory(null, "CORE");
 
     assertThat(result.success()).isFalse();
     assertThat(result.errorMessage()).isNotBlank();
@@ -114,9 +115,8 @@ class MemoryToolsTest {
   @DisplayName("content 为空串 → 失败结果，不写存储")
   void saveMemory_blankContent_failsWithoutWriting() {
     LongTermMemoryStore store = store();
-    NivroTool tool = toolsWith(store).saveMemory();
 
-    ToolResult result = tool.execute(args("{\"content\":\"   \"}"));
+    ToolResult result = toolsWith(store).saveMemory("   ", null);
 
     assertThat(result.success()).isFalse();
     verifyNoInteractions(store);
@@ -126,9 +126,8 @@ class MemoryToolsTest {
   @DisplayName("scope 非法 → 失败结果，不静默按默认处理")
   void saveMemory_illegalScope_failsInsteadOfFallingBack() {
     LongTermMemoryStore store = store();
-    NivroTool tool = toolsWith(store).saveMemory();
 
-    ToolResult result = tool.execute(args("{\"content\":\"一条记忆\",\"scope\":\"PERMANENT\"}"));
+    ToolResult result = toolsWith(store).saveMemory("一条记忆", "PERMANENT");
 
     assertThat(result.success()).isFalse();
     assertThat(result.errorMessage()).contains("PERMANENT"); // 报错指明非法取值
@@ -142,65 +141,9 @@ class MemoryToolsTest {
     doThrow(new UncheckedIOException("read-only fs", new IOException()))
         .when(store)
         .append(any(), any());
-    NivroTool tool = toolsWith(store).saveMemory();
 
-    assertThatThrownBy(() -> tool.execute(args("{\"content\":\"写不进去\"}")))
+    assertThatThrownBy(() -> toolsWith(store).saveMemory("写不进去", null))
         .isInstanceOf(UncheckedIOException.class);
-  }
-
-  // ---------------------------------------------------------------- 审计（继承 ToolExecutor 机制，不新增路径）
-
-  @Test
-  @DisplayName("经 ToolExecutor 执行 → tool_invocations 收到 success=true 记录")
-  void saveMemory_viaToolExecutor_recordsSuccessAudit() {
-    LongTermMemoryStore store = store();
-    ToolInvocationStore audit = mock(ToolInvocationStore.class);
-    ToolExecutor executor =
-        new ToolExecutor(Map.of("save_memory", toolsWith(store).saveMemory()), audit);
-
-    ToolResult result =
-        executor.execute(
-            "cli:u:weather",
-            new ToolCallRequest(
-                "save_memory", "{\"content\":\"偏好：Spring Boot\",\"scope\":\"CORE\"}"));
-
-    assertThat(result.success()).isTrue();
-    verify(audit)
-        .record(
-            eq("cli:u:weather"),
-            eq("save_memory"),
-            any(),
-            any(),
-            eq(true),
-            org.mockito.ArgumentMatchers.isNull(),
-            anyLong());
-  }
-
-  @Test
-  @DisplayName("存储失败经 ToolExecutor → 落失败审计并带 error_message")
-  void saveMemory_viaToolExecutor_recordsFailureAudit() {
-    LongTermMemoryStore store = store();
-    doThrow(new UncheckedIOException("read-only fs", new IOException()))
-        .when(store)
-        .append(any(), any());
-    ToolInvocationStore audit = mock(ToolInvocationStore.class);
-    ToolExecutor executor =
-        new ToolExecutor(Map.of("save_memory", toolsWith(store).saveMemory()), audit);
-
-    ToolResult result =
-        executor.execute(
-            "cli:u:weather", new ToolCallRequest("save_memory", "{\"content\":\"写不进去\"}"));
-
-    assertThat(result.success()).isFalse();
-    verify(audit)
-        .record(
-            eq("cli:u:weather"),
-            eq("save_memory"),
-            any(),
-            org.mockito.ArgumentMatchers.isNull(),
-            eq(false),
-            org.mockito.ArgumentMatchers.contains("read-only fs"),
-            anyLong());
   }
 
   // ---------------------------------------------------------------- recall_memory 契约表
@@ -211,9 +154,8 @@ class MemoryToolsTest {
     LongTermMemoryStore store = store();
     when(store.recallByKeyword("SQLite"))
         .thenReturn(List.of("上次讨论过使用 SQLite 作为本地存储", "SQLite 的 WAL 模式已开启"));
-    NivroTool tool = toolsWith(store).recallMemory();
 
-    ToolResult result = tool.execute(args("{\"query\":\"SQLite\"}"));
+    ToolResult result = toolsWith(store).recallMemory("SQLite");
 
     assertThat(result.success()).isTrue();
     assertThat(result.content()).isEqualTo("上次讨论过使用 SQLite 作为本地存储\nSQLite 的 WAL 模式已开启");
@@ -224,9 +166,8 @@ class MemoryToolsTest {
   void recallMemory_noMatch_returnsPlaceholder() {
     LongTermMemoryStore store = store();
     when(store.recallByKeyword(any())).thenReturn(List.of());
-    NivroTool tool = toolsWith(store).recallMemory();
 
-    ToolResult result = tool.execute(args("{\"query\":\"量子计算\"}"));
+    ToolResult result = toolsWith(store).recallMemory("量子计算");
 
     assertThat(result.success()).isTrue();
     assertThat(result.content()).isNotBlank().contains("无匹配"); // 不回显关键词（避免被当成命中内容）
@@ -239,9 +180,8 @@ class MemoryToolsTest {
     MarkdownMemoryStore realStore =
         new MarkdownMemoryStore(Files.createFile(tempDir.resolve("MEMORY.md")));
     realStore.append("项目使用 Spring Boot", MemoryScope.CORE);
-    NivroTool tool = toolsWith(realStore).recallMemory();
 
-    ToolResult result = tool.execute(args("{\"query\":\"Spring Boot\"}"));
+    ToolResult result = toolsWith(realStore).recallMemory("Spring Boot");
 
     assertThat(result.content()).contains("无匹配").doesNotContain("Spring Boot");
   }
@@ -250,9 +190,8 @@ class MemoryToolsTest {
   @DisplayName("query 缺失 → 失败结果，不查存储")
   void recallMemory_missingQuery_fails() {
     LongTermMemoryStore store = store();
-    NivroTool tool = toolsWith(store).recallMemory();
 
-    ToolResult result = tool.execute(args("{}"));
+    ToolResult result = toolsWith(store).recallMemory(null);
 
     assertThat(result.success()).isFalse();
     verifyNoInteractions(store);
@@ -262,9 +201,8 @@ class MemoryToolsTest {
   @DisplayName("query 为空串 → 失败结果，不查存储")
   void recallMemory_blankQuery_fails() {
     LongTermMemoryStore store = store();
-    NivroTool tool = toolsWith(store).recallMemory();
 
-    ToolResult result = tool.execute(args("{\"query\":\"  \"}"));
+    ToolResult result = toolsWith(store).recallMemory("  ");
 
     assertThat(result.success()).isFalse();
     verifyNoInteractions(store);
@@ -276,66 +214,54 @@ class MemoryToolsTest {
     LongTermMemoryStore store = store();
     when(store.recallByKeyword(any()))
         .thenThrow(new UncheckedIOException("db locked", new IOException()));
-    NivroTool tool = toolsWith(store).recallMemory();
 
-    assertThatThrownBy(() -> tool.execute(args("{\"query\":\"SQLite\"}")))
+    assertThatThrownBy(() -> toolsWith(store).recallMemory("SQLite"))
         .isInstanceOf(UncheckedIOException.class);
   }
 
-  // ---------------------------------------------------------------- 契约字面量
+  // ---------------------------------------------------------------- 注解契约（US-4 改造点）
 
   @Test
-  @DisplayName("工具名与描述逐字对齐契约（AGENT.md 按名引用）")
-  void saveMemory_nameAndDescription_matchContract() {
-    NivroTool tool = toolsWith(store()).saveMemory();
+  @DisplayName("改标 @Tool 后工具名与参数名逐字不变（save_memory / recall_memory、content / scope / query）")
+  void annotatedTools_keepContractNamesAndParams() {
+    Map<String, ToolCallback> callbacks = callbacksByToolName();
 
-    assertThat(tool.getName()).isEqualTo("save_memory");
-    assertThat(tool.getDescription()).contains("长期记忆");
+    assertThat(callbacks).containsOnlyKeys("save_memory", "recall_memory");
+
+    JsonNode saveSchema = args(callbacks.get("save_memory").getToolDefinition().inputSchema());
+    assertThat(propertyNames(saveSchema)).containsExactlyInAnyOrder("content", "scope");
+    assertThat(saveSchema.path("required").toString()).contains("\"content\"");
+    assertThat(saveSchema.path("properties").path("scope").path("description").asText())
+        .contains("CORE")
+        .contains("ARCHIVAL"); // 注解 schema 表达不了 enum，合法取值只在描述里（见 MemoryTools javadoc）
+
+    JsonNode recallSchema = args(callbacks.get("recall_memory").getToolDefinition().inputSchema());
+    assertThat(propertyNames(recallSchema)).containsExactly("query");
+    assertThat(recallSchema.path("required").toString()).contains("\"query\"");
   }
 
   @Test
-  @DisplayName("输入 schema 声明 content 必填、scope 枚举 CORE/ARCHIVAL")
-  void saveMemory_inputSchema_declaresContractShape() {
-    JsonSchemaAssert.of(toolsWith(store()).saveMemory().getInputSchema().value())
-        .hasRequired("content")
-        .hasEnum("scope", "CORE", "ARCHIVAL");
+  @DisplayName("工具描述随注解生成，逐字对齐契约（AGENT.md 按名引用）")
+  void annotatedTools_descriptions_matchContract() {
+    Map<String, ToolCallback> callbacks = callbacksByToolName();
+
+    assertThat(callbacks.get("save_memory").getToolDefinition().description()).contains("长期记忆");
+    assertThat(callbacks.get("recall_memory").getToolDefinition().description()).contains("核心区");
   }
 
-  @Test
-  @DisplayName("recall_memory 工具名与 schema 逐字对齐契约")
-  void recallMemory_nameAndSchema_matchContract() {
-    NivroTool tool = toolsWith(store()).recallMemory();
-
-    assertThat(tool.getName()).isEqualTo("recall_memory");
-    assertThat(tool.getDescription()).contains("核心区");
-    JsonSchemaAssert.of(tool.getInputSchema().value()).hasRequired("query");
+  private Map<String, ToolCallback> callbacksByToolName() {
+    return Arrays.stream(
+            MethodToolCallbackProvider.builder()
+                .toolObjects(toolsWith(store()))
+                .build()
+                .getToolCallbacks())
+        .collect(
+            Collectors.toMap(callback -> callback.getToolDefinition().name(), Function.identity()));
   }
 
-  /** 断言辅助：schema 是字符串，逐项判定而非整体字符串比对（排版差异不致误报）。 */
-  private static final class JsonSchemaAssert {
-
-    private final JsonNode schema;
-
-    private JsonSchemaAssert(String schemaJson) {
-      this.schema = args(schemaJson);
-    }
-
-    static JsonSchemaAssert of(String schemaJson) {
-      return new JsonSchemaAssert(schemaJson);
-    }
-
-    JsonSchemaAssert hasRequired(String field) {
-      assertThat(schema.path("required").toString()).contains("\"" + field + "\"");
-      return this;
-    }
-
-    JsonSchemaAssert hasEnum(String field, String... values) {
-      JsonNode enumNode = schema.path("properties").path(field).path("enum");
-      assertThat(enumNode.isArray()).isTrue();
-      for (String value : values) {
-        assertThat(enumNode.toString()).contains("\"" + value + "\"");
-      }
-      return this;
-    }
+  private static List<String> propertyNames(JsonNode schema) {
+    List<String> names = new ArrayList<>();
+    schema.path("properties").fieldNames().forEachRemaining(names::add);
+    return names;
   }
 }

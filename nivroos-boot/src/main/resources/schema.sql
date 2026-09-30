@@ -43,3 +43,14 @@ CREATE TABLE IF NOT EXISTS memory_entries (
     content    TEXT        NOT NULL,
     created_at TIMESTAMP   NOT NULL
 );
+
+-- US-4（核心能力四）：通知渠道全局注册表（技术方案 §6.8；DDL 逐字见
+-- docs/us/us4-tool.md §3.4）。核心阶段注册方式 = 手工 SQL 直插，无 CRUD 端点；
+-- url 即凭证，真实值只由操作者从环境变量取用后填入，不写进文档与 git。
+CREATE TABLE IF NOT EXISTS notify_channels (
+    name        VARCHAR(64)  PRIMARY KEY,
+    type        VARCHAR(32)  NOT NULL,   -- 渠道类型（核心阶段仅 webhook）
+    url         VARCHAR(512) NOT NULL,   -- webhook 地址
+    description VARCHAR(255),
+    created_at  TIMESTAMP    NOT NULL
+);

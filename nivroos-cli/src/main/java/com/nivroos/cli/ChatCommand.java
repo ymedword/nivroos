@@ -15,16 +15,10 @@ import com.nivroos.core.react.ReActLoop;
 import com.nivroos.core.react.ToolExecutor;
 import com.nivroos.core.session.Session;
 import com.nivroos.core.session.SessionManager;
-import com.nivroos.memory.MemoryTools;
-import com.nivroos.tool.HttpTools;
-import com.nivroos.tool.sandbox.Sandbox;
-import com.nivroos.tool.sandbox.WhitelistSandbox;
+import com.nivroos.tool.ToolRegistry;
 import java.io.IOException;
-import java.net.http.HttpClient;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -35,8 +29,9 @@ import picocli.CommandLine.Option;
  *
  * <p>Spring-path command: runs inside the boot context because it needs the ProviderService and
  * audit store beans (US-1/US-3). Assembles the whole ReAct chain (granularity doc §2.3) from
- * US-1/US-2 deliverables; the tool pool is a plain map (US-4 replaces it with ToolRegistry).
- * Contracts: contracts/cli-commands.md.
+ * US-1/US-2 deliverables; the tool pool comes from the injected {@link ToolRegistry} (US-4), so
+ * built-in tools and {@code @Tool} beans reach the loop through one registration path. Contracts:
+ * contracts/cli-commands.md.
  */
 @Component
 @Command(name = "chat", description = "交互式多轮对话（--message 发单条后退出）", mixinStandardHelpOptions = true)
@@ -53,19 +48,19 @@ public class ChatCommand implements Runnable {
 
   private final ProviderService providerService;
   private final ToolInvocationStore toolInvocationStore;
-  private final Environment environment;
+  private final ToolRegistry toolRegistry;
   private final MemoryService memoryService;
   private final SessionManager sessionManager;
 
   public ChatCommand(
       ProviderService providerService,
       ToolInvocationStore toolInvocationStore,
-      Environment environment,
+      ToolRegistry toolRegistry,
       MemoryService memoryService,
       SessionManager sessionManager) {
     this.providerService = providerService;
     this.toolInvocationStore = toolInvocationStore;
-    this.environment = environment;
+    this.toolRegistry = toolRegistry;
     this.memoryService = memoryService;
     this.sessionManager = sessionManager;
   }
@@ -95,17 +90,14 @@ public class ChatCommand implements Runnable {
     ProfileRegistry registry = new ProfileRegistry();
     registry.register(agentProfile);
 
-    ContextLoader contextLoader = new ContextLoader(agentsRoot.resolve(profile), workspace);
+    // Profile 进构造器：Bootstrap 列表与技能绑定都按 Agent 自己的声明生效（US-4 前序改造点 4）
+    ContextLoader contextLoader =
+        new ContextLoader(agentProfile, agentsRoot.resolve(profile), workspace);
     PromptBuilder promptBuilder = new PromptBuilder(contextLoader, memoryService);
 
-    Sandbox sandbox = new WhitelistSandbox(allowedDomains());
-    HttpTools httpTools = new HttpTools(sandbox, HttpClient.newHttpClient());
-    MemoryTools memoryTools = new MemoryTools(memoryService);
-    Map<String, NivroTool> toolPool =
-        Map.of(
-            "http_get", httpTools.httpGet(),
-            "save_memory", memoryTools.saveMemory(),
-            "recall_memory", memoryTools.recallMemory());
+    // 工具池取自容器注册表（US-4 前序改造点 3）：沙箱、白名单与各工具 Bean 由 ToolConfiguration 装配，
+    // 本命令不再自己 new 工具——否则注解 Bean 与内置工具会走两条注册路径
+    Map<String, NivroTool> toolPool = toolRegistry.all();
     ToolExecutor toolExecutor = new ToolExecutor(toolPool, toolInvocationStore);
 
     ReActLoop loop = new ReActLoop(providerService, promptBuilder, toolExecutor, toolPool);
@@ -125,15 +117,5 @@ public class ChatCommand implements Runnable {
     } catch (IOException e) {
       throw new IllegalStateException("CLI channel failed", e);
     }
-  }
-
-  private List<String> allowedDomains() {
-    // YAML 列表必须经 Binder 读取：Environment.getProperty 返回 null
-    // （列表以索引键存储，2026-08-31 Demo 实测踩坑）
-    return org.springframework.boot.context.properties.bind.Binder.get(environment)
-        .bind(
-            "http.allowed-domains",
-            org.springframework.boot.context.properties.bind.Bindable.listOf(String.class))
-        .orElse(List.of());
   }
 }
